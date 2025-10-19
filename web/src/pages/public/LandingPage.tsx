@@ -28,7 +28,13 @@ export default function LandingPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
+        <div 
+          className="h-12 w-12 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600"
+          role="status"
+          aria-label="Loading survey"
+        >
+          <span className="sr-only">Loading...</span>
+        </div>
       </div>
     );
   }
@@ -106,6 +112,7 @@ export default function LandingPage() {
             }}
             disabled={!survey?.id}
             className="btn-primary w-full text-lg"
+            aria-label={`Start survey: ${survey?.title || 'survey'}`}
           >
             Start Survey
           </button>
@@ -113,73 +120,76 @@ export default function LandingPage() {
           <button
             onClick={() => navigate('/privacy')}
             className="mt-4 text-sm text-primary-600 hover:text-primary-700 underline"
+            aria-label="Read our privacy policy"
           >
             Read our Privacy Policy
           </button>
         </div>
 
         {/* Features */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="card text-center">
-            <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
-              <svg
-                className="h-6 w-6 text-green-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-sm font-medium">Quick & Easy</h3>
-            <p className="mt-1 text-xs text-gray-600">Complete in under 5 minutes</p>
-          </div>
+        <section aria-label="Survey features">
+          <div className="grid gap-4 md:grid-cols-3">
+            <article className="card text-center">
+              <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-green-100 flex items-center justify-center" aria-hidden="true">
+                <svg
+                  className="h-6 w-6 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-sm font-medium">Quick & Easy</h3>
+              <p className="mt-1 text-xs text-gray-600">Complete in under 5 minutes</p>
+            </article>
 
-          <div className="card text-center">
-            <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-              <svg
-                className="h-6 w-6 text-blue-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-sm font-medium">Private</h3>
-            <p className="mt-1 text-xs text-gray-600">Completely anonymous responses</p>
-          </div>
+            <article className="card text-center">
+              <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center" aria-hidden="true">
+                <svg
+                  className="h-6 w-6 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-sm font-medium">Private</h3>
+              <p className="mt-1 text-xs text-gray-600">Completely anonymous responses</p>
+            </article>
 
-          <div className="card text-center">
-            <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
-              <svg
-                className="h-6 w-6 text-purple-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-sm font-medium">Offline Ready</h3>
-            <p className="mt-1 text-xs text-gray-600">Works without internet</p>
+            <article className="card text-center">
+              <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center" aria-hidden="true">
+                <svg
+                  className="h-6 w-6 text-purple-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-sm font-medium">Offline Ready</h3>
+              <p className="mt-1 text-xs text-gray-600">Works without internet</p>
+            </article>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

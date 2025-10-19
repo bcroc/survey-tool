@@ -37,7 +37,16 @@ A full-stack web application for running quick on-site event surveys with anonym
 - **CSRF Protection**: Cross-site request forgery protection on all admin endpoints
 - **Rate Limiting**: Prevent abuse on public endpoints
 - **Input Validation**: Zod schemas for all API inputs
-- **WCAG AA Compliant**: Keyboard navigable with proper ARIA labels
+
+### Accessibility (WCAG 2.1 AA Compliant)
+- **Keyboard Navigation**: Full keyboard support with visible focus indicators
+- **Screen Reader Support**: Proper ARIA labels, roles, and live regions
+- **Skip Navigation**: Skip-to-content link for keyboard users
+- **High Contrast**: Support for high contrast mode preferences
+- **Reduced Motion**: Respects prefers-reduced-motion settings
+- **Semantic HTML**: Proper heading hierarchy and landmarks
+
+📖 **See [ACCESSIBILITY.md](ACCESSIBILITY.md) for detailed accessibility documentation**
 
 ## 🏗️ Architecture
 
