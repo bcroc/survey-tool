@@ -14,15 +14,6 @@ export enum BranchAction {
   SKIP_TO_END = 'SKIP_TO_END',
 }
 
-export interface BranchingRule {
-  id: string;
-  optionId: string;
-  action: BranchAction;
-  targetQuestionId?: string;
-  targetSectionId?: string;
-  skipToEnd: boolean;
-}
-
 export interface ShowIfCondition {
   questionId: string;
   operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than';
@@ -35,7 +26,11 @@ export interface Option {
   label: string;
   value: string;
   order: number;
-  branchingRule?: BranchingRule;
+  // Branching fields moved onto Option for simplicity
+  branchAction?: BranchAction;
+  targetQuestionId?: string;
+  targetSectionId?: string;
+  skipToEnd?: boolean;
 }
 
 export interface Question {

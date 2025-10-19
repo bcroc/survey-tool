@@ -123,27 +123,10 @@ Survey
 ├── sections[]
 ├── submissions[]
 └── timestamps
-
-Section
-├── id, surveyId, title, order
-├── questions[]
-└── belongsTo: Survey
-
-Question
-├── id, sectionId, type, prompt
-├── required, order, showIf
-├── options[]
-└── belongsTo: Section
-
 Option
 ├── id, questionId, label, value, order
-├── branchingRule?
+├── branchAction?, targetQuestionId?, targetSectionId?, skipToEnd?
 └── belongsTo: Question
-
-BranchingRule
-├── id, optionId, action
-├── targetSectionId?, skipToEnd
-└── belongsTo: Option
 
 Submission
 ├── id, surveyId, eventSlug
@@ -156,11 +139,9 @@ Answer
 ├── choiceValues?, textValue?, numberValue?
 └── belongsTo: Submission, Question
 ```
-
 ### Relationships
 
 - **One-to-Many**: Survey → Sections → Questions → Options
-- **One-to-One**: Option → BranchingRule (optional)
 - **Many-to-Many**: Questions ↔ Answers ↔ Submissions
 
 ## API Design

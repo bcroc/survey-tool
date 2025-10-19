@@ -1,6 +1,59 @@
-# Event Survey Application# Event Survey Web App
+A full-stack survey application. The original verbose README has been archived to `docs/README_FULL_ORIGINAL.md` for reference.
 
+## 🚀 Quick Start
 
+This repository contains a full-stack survey application. The original verbose README has been archived to `docs/README_FULL_ORIGINAL.md` for reference.
+
+Prerequisites
+- Node.js 18+ and npm 9+, or Docker & Docker Compose (recommended)
+
+Quick commands
+- Install dependencies for the monorepo:
+
+```bash
+npm install
+```
+
+- Start dev servers (runs both `api` and `web`):
+
+```bash
+npm run dev
+```
+
+- Build both projects:
+
+```bash
+npm run build
+```
+
+- Run tests for both workspaces:
+
+```bash
+npm test
+```
+
+Useful per-workspace commands
+- API (backend):
+
+```bash
+npm run dev --workspace=api
+npm run db:push --workspace=api
+npm run test --workspace=api
+```
+
+- Web (frontend):
+
+```bash
+npm run dev --workspace=web
+npm run build --workspace=web
+npm run test --workspace=web
+```
+
+Notes
+- I added `tsconfig.base.json` and updated `api`/`web` to extend it to reduce duplication.
+- If you'd like, I'll also:
+  - Add explicit root scripts like `api:dev`, `web:dev`, `api:test`, `web:test` to simplify workspace invocations.
+  - Move deployment and development docs into the `docs/` folder and produce a trimmed README.
 
 A full-stack survey management system built with React, TypeScript, Node.js, Express, PostgreSQL, and Prisma. This application enables organizations to create, manage, and analyze event feedback surveys with advanced features including conditional logic, branching, and rich analytics with visualizations.## ⚡ SIMPLIFIED ARCHITECTURE - NOW ONLY 2 CONTAINERS!
 

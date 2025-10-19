@@ -15,7 +15,7 @@ export class AppError extends Error {
 }
 
 export class ValidationError extends AppError {
-  constructor(message: string = 'Validation failed', public details?: any[]) {
+  constructor(message: string = 'Validation failed', public details: Array<Record<string, unknown>> = []) {
     super(message, 400);
   }
 }

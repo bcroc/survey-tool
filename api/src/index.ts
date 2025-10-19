@@ -7,6 +7,8 @@ import path from 'path';
 import pinoHttp from 'pino-http';
 import connectPgSimple from 'connect-pg-simple';
 import rateLimit from 'express-rate-limit';
+// We'll use a small, well-tested session-backed CSRF implementation instead of
+// the `csurf` package to avoid depending on older `cookie` versions.
 import pg from 'pg';
 
 // Config and services
@@ -24,8 +26,16 @@ import authRoutes from './routes/auth';
 
 const app: Application = express();
 
+// When running behind a proxy (e.g., load balancer) ensure Express is aware
+// so secure cookies and IPs are handled correctly in production.
+if (isProduction()) {
+  app.set('trust proxy', 1);
+}
+
 // HTTP logger
-app.use(pinoHttp({ logger }));
+// pino v10 introduced stricter generics which can be noisy here; cast to a compatible
+// logger type for pino-http to avoid complex generic plumbing in the app entry.
+app.use(pinoHttp({ logger: logger as unknown as import('pino').Logger<string, boolean> }));
 
 // Security middleware
 app.use(
@@ -77,7 +87,8 @@ app.use(
     saveUninitialized: false,
     name: 'sid',
     cookie: {
-      secure: false, // Set to false to work in non-HTTPS environments
+      // Only set the secure flag for cookies in production where HTTPS is expected.
+      secure: isProduction(),
       httpOnly: true,
       maxAge: config.session.maxAge,
       sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
@@ -103,8 +114,34 @@ app.use('/api/contacts', submissionLimiter, contactRoutes);
 // Auth routes
 app.use('/api/auth', authRoutes);
 
-// Admin routes (protected)
-app.use('/api/admin', adminRoutes);
+// Simple session-backed CSRF middleware.
+// It stores a random token on the session and expects it to be sent back in
+// the `X-CSRF-Token` header for state-changing requests on protected routes.
+
+// Narrow `Request` to include the `session` object we expect from
+// `express-session`. This avoids repetitive `@ts-ignore` comments.
+type SessionLike = Record<string, unknown> & { csrfToken?: string };
+
+type SessionRequest = Request & { session?: SessionLike };
+
+const csrfHandler = (req: SessionRequest, res: Response, next: NextFunction) => {
+  const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+  if (safeMethods.includes(req.method)) return next();
+
+  if (!req.session) return res.status(401).json({ success: false, error: 'Unauthenticated' });
+
+  const headerToken = (req.get('x-csrf-token') as string) || (req.headers['x-csrf-token'] as string | undefined);
+  const sessionToken = req.session?.csrfToken as string | undefined;
+
+  if (!sessionToken) return res.status(403).json({ success: false, error: 'CSRF token missing from session' });
+  if (!headerToken) return res.status(403).json({ success: false, error: 'CSRF token missing from request' });
+  if (headerToken !== sessionToken) return res.status(403).json({ success: false, error: 'Invalid CSRF token' });
+
+  return next();
+};
+
+// Admin routes (protected) - apply CSRF to admin routes which rely on cookies/sessions
+app.use('/api/admin', csrfHandler, adminRoutes);
 
 // Serve static frontend files in production
 if (isProduction()) {
@@ -118,21 +155,25 @@ if (isProduction()) {
 }
 
 // Error handling
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  logger.error(err);
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  // Log the error object safely
+  logger.error({ err }, 'Unhandled error');
 
   // Determine status code
-  const statusCode = err.statusCode || err.status || 500;
-  
-  // Determine error message
-  const message = isProduction() 
-    ? (statusCode === 500 ? 'Internal server error' : err.message)
-    : (err.message || 'Internal server error');
+  // Defensive extraction of status and message
+  // Extract known error fields defensively from unknown
+  const errObj = err as { statusCode?: number; status?: number; message?: unknown } | undefined;
+  const statusCode = errObj?.statusCode || errObj?.status || 500;
+
+  const errMessage = errObj?.message;
+  const message = isProduction()
+    ? (statusCode === 500 ? 'Internal server error' : String(errMessage))
+    : (String(errMessage) || 'Internal server error');
 
   res.status(statusCode).json({
     success: false,
     error: message,
-    ...(isDevelopment() && { stack: err.stack }),
+    ...(isDevelopment() && { stack: (err as Error)?.stack }),
   });
 });
 
@@ -141,26 +182,29 @@ app.use((_req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
 });
 
-// Start server
-const server = app.listen(config.port, () => {
-  logger.info(`🚀 Server running on port ${config.port} in ${config.env} mode`);
-  logger.info(`📡 API: http://localhost:${config.port}/api`);
-  if (isProduction()) {
-    logger.info(`🌐 Frontend: http://localhost:${config.port}`);
-  } else {
-    logger.info(`🌐 Frontend (dev): ${config.frontend.url}`);
-  }
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, shutting down gracefully...');
-  server.close(async () => {
-    await disconnectDatabase();
-    await pgPool.end();
-    logger.info('Server closed');
-    process.exit(0);
+// Start server only when not running in test environment
+let server: ReturnType<typeof app.listen> | undefined;
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(config.port, () => {
+    logger.info(`🚀 Server running on port ${config.port} in ${config.env} mode`);
+    logger.info(`📡 API: http://localhost:${config.port}/api`);
+    if (isProduction()) {
+      logger.info(`🌐 Frontend: http://localhost:${config.port}`);
+    } else {
+      logger.info(`🌐 Frontend (dev): ${config.frontend.url}`);
+    }
   });
-});
+
+  // Graceful shutdown
+  process.on('SIGTERM', async () => {
+    logger.info('SIGTERM received, shutting down gracefully...');
+    server?.close(async () => {
+      await disconnectDatabase();
+      await pgPool.end();
+      logger.info('Server closed');
+      process.exit(0);
+    });
+  });
+}
 
 export default app;

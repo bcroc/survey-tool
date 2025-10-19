@@ -1,7 +1,8 @@
 import pino from 'pino';
-import { config, isDevelopment, isProduction } from './env';
+import type { Logger } from 'pino';
+import { isDevelopment, isProduction } from './env';
 
-export const logger = pino({
+export const logger: Logger = pino({
   level: isProduction() ? 'info' : 'debug',
   transport: isDevelopment()
     ? {

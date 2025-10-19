@@ -178,13 +178,12 @@ export default function SurveyFlow() {
       // Check each selected option for branching rules
       for (const selectedValue of answer.choiceValues) {
         const option = question.options.find(opt => opt.value === selectedValue);
-        if (option?.branchingRule) {
-          const rule = option.branchingRule;
-          if (rule.action === 'SKIP_TO_END' || rule.skipToEnd) {
+        if (option) {
+          if (option.branchAction === 'SKIP_TO_END' || option.skipToEnd) {
             return { action: 'SKIP_TO_END' as BranchAction, skipToEnd: true };
           }
-          if (rule.action === 'SKIP_TO_SECTION' && rule.targetSectionId) {
-            return { action: 'SKIP_TO_SECTION' as BranchAction, targetSectionId: rule.targetSectionId };
+          if (option.branchAction === 'SKIP_TO_SECTION' && option.targetSectionId) {
+            return { action: 'SKIP_TO_SECTION' as BranchAction, targetSectionId: option.targetSectionId };
           }
         }
       }

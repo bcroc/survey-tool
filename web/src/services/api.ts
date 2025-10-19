@@ -11,6 +11,34 @@ const api = axios.create({
   },
 });
 
+// In-memory CSRF token cache
+let csrfToken: string | null = null;
+
+async function ensureCsrfToken() {
+  if (csrfToken) return csrfToken;
+  try {
+    const res = await api.get('/auth/csrf-token');
+    const token = res?.data?.csrfToken || null;
+    csrfToken = token;
+    return token;
+  } catch (err) {
+    // If fetching token fails, return null and let request fail downstream
+    return null;
+  }
+}
+
+// Attach CSRF token automatically to admin requests
+api.interceptors.request.use(async (config) => {
+  if (config.url && config.url.startsWith('/admin')) {
+    const token = await ensureCsrfToken();
+    if (token) {
+      if (!config.headers) config.headers = {} as any;
+      (config.headers as any)['X-CSRF-Token'] = token;
+    }
+  }
+  return config;
+});
+
 // Response interceptor: unwrap unified API shape and handle auth
 api.interceptors.response.use(
   (response: any) => {
@@ -94,8 +122,7 @@ export const adminAPI = {
   // Options (CRUD)
   options: createCrudApi('/admin/options'),
 
-  // Branching Rules (CRUD)
-  branchingRules: createCrudApi('/admin/branching-rules'),
+  // Branching is managed via option updates (branchAction/targetQuestionId/targetSectionId/skipToEnd)
 
   // Metrics
   getMetricsOverview: (surveyId: string) =>

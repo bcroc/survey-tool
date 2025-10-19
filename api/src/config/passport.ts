@@ -43,11 +43,12 @@ export function configurePassport() {
     )
   );
 
-  passport.serializeUser((user: Express.User, done) => {
-    done(null, (user as any).id);
+  passport.serializeUser((user: Express.User, done: (err: Error | null, id?: string) => void) => {
+    const uid = (user as { id?: string }).id;
+    done(null, uid);
   });
 
-  passport.deserializeUser(async (id: string, done) => {
+  passport.deserializeUser(async (id: string, done: (err: Error | null, user?: { id: string; email: string } | null) => void) => {
     try {
       const user = await prisma.adminUser.findUnique({
         where: { id },

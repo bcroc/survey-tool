@@ -46,8 +46,7 @@ export default function SurveyBuilder() {
     setSaving(true);
     try {
       const payload: any = {
-        optionId,
-        action: branchAction,
+        branchAction: branchAction,
         skipToEnd: branchAction === 'SKIP_TO_END',
       };
       if (branchAction === 'SKIP_TO_SECTION' && branchTargetSectionId) {
@@ -56,7 +55,7 @@ export default function SurveyBuilder() {
       if (branchAction === 'SHOW_QUESTION' && branchTargetQuestionId) {
         payload.targetQuestionId = branchTargetQuestionId;
       }
-      await adminAPI.branchingRules.create(payload);
+      await adminAPI.options.update(optionId, payload);
       setShowBranchingFor(null);
       await load();
     } catch (e: any) {
@@ -66,11 +65,11 @@ export default function SurveyBuilder() {
     }
   };
 
-  const deleteBranchingRule = async (ruleId: string) => {
+  const deleteBranchingRule = async (optionId: string) => {
     if (!confirm('Delete this branching rule?')) return;
     setSaving(true);
     try {
-      await adminAPI.branchingRules.delete(ruleId);
+      await adminAPI.options.update(optionId, { branchAction: null, targetQuestionId: null, targetSectionId: null, skipToEnd: false });
       await load();
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to delete branching rule');
@@ -257,16 +256,16 @@ export default function SurveyBuilder() {
                                     <div className="flex items-center justify-between gap-2">
                                       <span className="text-gray-700">• {opt.label}</span>
                                       <div className="flex items-center gap-2">
-                                        {opt.branchingRule ? (
+                                        {opt.branchAction ? (
                                           <div className="flex items-center gap-2">
                                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                              {opt.branchingRule.action === 'SKIP_TO_END' ? '→ End Survey' :
-                                               opt.branchingRule.action === 'SKIP_TO_SECTION' ? '→ Skip to Section' :
+                                              {opt.branchAction === 'SKIP_TO_END' ? '→ End Survey' :
+                                               opt.branchAction === 'SKIP_TO_SECTION' ? '→ Skip to Section' :
                                                '→ Show Question'}
                                             </span>
                                             <button 
                                               className="text-xs text-red-600 hover:underline" 
-                                              onClick={() => deleteBranchingRule(opt.branchingRule!.id)}
+                                              onClick={() => deleteBranchingRule(opt.id)}
                                               disabled={saving}
                                             >
                                               Remove

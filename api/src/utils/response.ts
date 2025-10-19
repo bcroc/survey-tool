@@ -3,12 +3,12 @@ import { Response } from 'express';
 /**
  * Standardized API response format
  */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
   message?: string;
-  meta?: Record<string, any>;
+  meta?: Record<string, unknown>;
 }
 
 /**
@@ -42,7 +42,7 @@ export function sendError(
   res: Response,
   error: string,
   statusCode: number = 400,
-  meta?: Record<string, any>
+  meta?: Record<string, unknown>
 ): Response {
   const response: ApiResponse = {
     success: false,
@@ -75,7 +75,7 @@ export function sendUnauthorized(
 export function sendValidationError(
   res: Response,
   message: string = 'Validation failed',
-  details?: any[]
+  details?: Array<Record<string, unknown>>
 ): Response {
   return sendError(res, message, 400, { details });
 }

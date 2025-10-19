@@ -29,9 +29,6 @@ router.get(
               include: {
                 options: {
                   orderBy: { order: 'asc' },
-                  include: {
-                    branchingRule: true,
-                  },
                 },
               },
             },
@@ -67,9 +64,6 @@ router.get('/:id', async (req, res, next) => {
               include: {
                 options: {
                   orderBy: { order: 'asc' },
-                  include: {
-                    branchingRule: true,
-                  },
                 },
               },
             },

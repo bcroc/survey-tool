@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../services/database';
 import { validate } from '../middleware/validation';
-import { sendSuccess, sendCreated, sendNotFound, sendError } from '../utils/response';
+import { sendSuccess, sendCreated, sendError } from '../utils/response';
 import { NotFoundError } from '../utils/errors';
 
 const router = Router();
@@ -86,8 +86,15 @@ router.post(
         return sendError(res, 'Cannot modify answers for a completed submission', 400);
       }
 
-      // Bulk upsert answers
-      const upsertPromises = answers.map((answer: any) =>
+      type AnswerPayload = {
+        questionId: string;
+        choiceValues?: string[];
+        textValue?: string | null;
+        numberValue?: number | null;
+      };
+
+          // Bulk upsert answers
+          const upsertPromises = answers.map((answer: AnswerPayload) =>
         prisma.answer.upsert({
           where: {
             submissionId_questionId: {

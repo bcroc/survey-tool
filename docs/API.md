@@ -469,34 +469,29 @@ Delete an option.
 
 ---
 
-### Branching Rules
+### Branching
 
-#### POST /api/admin/branching-rules
-Create a branching rule for an option.
+Branching is now managed on the `Option` resource. Instead of a separate `branching-rules` resource, update the option with the branching fields.
 
-**Request Body:**
+#### PATCH /api/admin/options/:id
+Update an option's branching behavior.
+
+**Request Body (example):**
 ```json
 {
-  "optionId": "option123",
-  "action": "SKIP_TO_SECTION",
+  "branchAction": "SKIP_TO_SECTION",
   "targetSectionId": "section456",
   "skipToEnd": false
 }
 ```
 
-**Actions:**
-- `SKIP_TO_SECTION` - Jump to specific section
-- `SKIP_TO_END` - End survey immediately
+Fields:
+- `branchAction` - One of `SHOW_QUESTION`, `SKIP_TO_SECTION`, `SKIP_TO_END`.
+- `targetQuestionId` - Optional, required when `branchAction` is `SHOW_QUESTION`.
+- `targetSectionId` - Optional, required when `branchAction` is `SKIP_TO_SECTION`.
+- `skipToEnd` - Optional boolean, shorthand to end the survey.
 
----
-
-#### PATCH /api/admin/branching-rules/:id
-Update a branching rule.
-
----
-
-#### DELETE /api/admin/branching-rules/:id
-Delete a branching rule.
+To remove branching from an option, PATCH with `branchAction: null` and `skipToEnd: false`.
 
 ---
 

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { Parser } from 'json2csv';
 import { prisma } from '../services/database';
-import { logger } from '../config/logger';
+import type { Prisma } from '@prisma/client';
 import { requireAuth } from '../middleware/auth';
 import { validate } from '../middleware/validation';
 import { sendSuccess, sendCreated, sendError, sendNotFound } from '../utils/response';
@@ -20,18 +20,39 @@ enum QuestionType {
 
 const router = Router();
 
+// Types for import payload
+type ImportQuestion = {
+  type: string;
+  prompt: string;
+  required?: boolean;
+  helpText?: string;
+  options?: string[];
+};
+
+type ImportSection = {
+  title: string;
+  questions: ImportQuestion[];
+};
+
 // All admin routes require authentication
 router.use(requireAuth);
 
 // Helper function to create audit log
-async function createAuditLog(req: any, action: string, entity: string, entityId: string, meta?: any) {
+async function createAuditLog(
+  req: import('express').Request,
+  action: string,
+  entity: string,
+  entityId: string,
+  meta?: Record<string, unknown>
+) {
+  const adminId = (req.user as { id?: string } | null)?.id;
   await prisma.auditLog.create({
     data: {
-      adminId: req.user?.id,
+      adminId,
       action,
       entity,
       entityId,
-      meta,
+      meta: meta as unknown as Prisma.JsonObject,
     },
   });
 }
@@ -87,9 +108,6 @@ router.get('/surveys/:id', async (req, res, next) => {
               include: {
                 options: {
                   orderBy: { order: 'asc' },
-                  include: {
-                    branchingRule: true,
-                  },
                 },
               },
             },
@@ -168,6 +186,11 @@ const createSectionSchema = z.object({
   order: z.number().int().min(0),
 });
 
+const updateSectionSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  order: z.number().int().min(0).optional(),
+}).strict();
+
 router.post('/sections', validate(createSectionSchema), async (req, res, next) => {
   try {
     const section = await prisma.section.create({
@@ -180,7 +203,7 @@ router.post('/sections', validate(createSectionSchema), async (req, res, next) =
   }
 });
 
-router.patch('/sections/:id', async (req, res, next) => {
+router.patch('/sections/:id', validate(updateSectionSchema), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { title, order } = req.body;
@@ -250,7 +273,15 @@ router.post('/questions', validate(createQuestionSchema), async (req, res, next)
   }
 });
 
-router.patch('/questions/:id', async (req, res, next) => {
+const updateQuestionSchema = z.object({
+  type: z.nativeEnum(QuestionType).optional(),
+  prompt: z.string().min(1).optional(),
+  helpText: z.string().optional(),
+  required: z.boolean().optional(),
+  order: z.number().int().min(0).optional(),
+}).strict();
+
+router.patch('/questions/:id', validate(updateQuestionSchema), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { type, prompt, helpText, required, order } = req.body;
@@ -284,12 +315,28 @@ router.delete('/questions/:id', async (req, res, next) => {
 // Option Management
 // ============================================================
 
-router.post('/options', async (req, res, next) => {
+const createOptionSchema = z.object({
+  questionId: z.string().cuid(),
+  label: z.string().min(1).max(200),
+  value: z.string().min(1).max(200),
+  order: z.number().int().min(0),
+}).strict();
+
+router.post('/options', validate(createOptionSchema), async (req, res, next) => {
   try {
-    const { questionId, label, value, order } = req.body;
+    const { questionId, label, value, order, branchAction, targetQuestionId, targetSectionId, skipToEnd } = req.body;
 
     const option = await prisma.option.create({
-      data: { questionId, label, value, order },
+      data: {
+        questionId,
+        label,
+        value,
+        order,
+        branchAction,
+        targetQuestionId,
+        targetSectionId,
+        skipToEnd,
+      },
     });
 
     return sendCreated(res, option);
@@ -298,14 +345,32 @@ router.post('/options', async (req, res, next) => {
   }
 });
 
-router.patch('/options/:id', async (req, res, next) => {
+const updateOptionSchema = z.object({
+  label: z.string().min(1).optional(),
+  value: z.string().min(1).optional(),
+  order: z.number().int().min(0).optional(),
+  branchAction: z.enum(['SHOW_QUESTION', 'SKIP_TO_SECTION', 'SKIP_TO_END']).optional(),
+  targetQuestionId: z.string().cuid().optional(),
+  targetSectionId: z.string().cuid().optional(),
+  skipToEnd: z.boolean().optional(),
+}).strict();
+
+router.patch('/options/:id', validate(updateOptionSchema), async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { label, value, order } = req.body;
+    const { label, value, order, branchAction, targetQuestionId, targetSectionId, skipToEnd } = req.body;
 
     const option = await prisma.option.update({
       where: { id },
-      data: { label, value, order },
+      data: {
+        label,
+        value,
+        order,
+        branchAction,
+        targetQuestionId,
+        targetSectionId,
+        skipToEnd,
+      },
     });
 
     return sendSuccess(res, option);
@@ -328,59 +393,7 @@ router.delete('/options/:id', async (req, res, next) => {
   }
 });
 
-// ============================================================
-// Branching Rule Management
-// ============================================================
-
-const createBranchingRuleSchema = z.object({
-  optionId: z.string().cuid(),
-  action: z.enum(['SHOW_QUESTION', 'SKIP_TO_SECTION', 'SKIP_TO_END']),
-  targetQuestionId: z.string().cuid().optional(),
-  targetSectionId: z.string().cuid().optional(),
-  skipToEnd: z.boolean().optional(),
-});
-
-router.post('/branching-rules', validate(createBranchingRuleSchema), async (req, res, next) => {
-  try {
-    const branchingRule = await prisma.branchingRule.create({
-      data: req.body,
-    });
-
-    return sendCreated(res, branchingRule);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.patch('/branching-rules/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { action, targetQuestionId, targetSectionId, skipToEnd } = req.body;
-
-    const branchingRule = await prisma.branchingRule.update({
-      where: { id },
-      data: { action, targetQuestionId, targetSectionId, skipToEnd },
-    });
-
-    return sendSuccess(res, branchingRule);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.delete('/branching-rules/:id', async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    await prisma.branchingRule.delete({
-      where: { id },
-    });
-
-    return sendSuccess(res, { deleted: true });
-  } catch (error) {
-    next(error);
-  }
-});
+// Branching is handled directly on Option rows (branchAction, targetQuestionId, targetSectionId, skipToEnd)
 
 // ============================================================
 // Analytics & Metrics
@@ -389,21 +402,22 @@ router.delete('/branching-rules/:id', async (req, res, next) => {
 // GET /api/admin/metrics/overview
 router.get('/metrics/overview', async (req, res, next) => {
   try {
-    const { surveyId, startDate, endDate } = req.query;
+  const { surveyId, startDate, endDate } = req.query;
 
     if (!surveyId) {
       return sendError(res, 'surveyId is required', 400);
     }
 
-    const whereClause: any = { surveyId: surveyId as string };
+    const whereClause: import('@prisma/client').Prisma.SubmissionWhereInput = { surveyId: surveyId as string };
+    let createdAtClause: import('@prisma/client').Prisma.DateTimeFilter | undefined;
     if (startDate) {
-      whereClause.createdAt = { gte: new Date(startDate as string) };
+      createdAtClause = { ...(createdAtClause ?? {}), gte: new Date(startDate as string) } as unknown as import('@prisma/client').Prisma.DateTimeFilter;
     }
     if (endDate) {
-      whereClause.createdAt = { 
-        ...whereClause.createdAt, 
-        lte: new Date(endDate as string) 
-      };
+      createdAtClause = { ...(createdAtClause ?? {}), lte: new Date(endDate as string) } as unknown as import('@prisma/client').Prisma.DateTimeFilter;
+    }
+    if (createdAtClause) {
+      whereClause.createdAt = createdAtClause as unknown as import('@prisma/client').Prisma.DateTimeFilter;
     }
 
     const totalSubmissions = await prisma.submission.count({
@@ -473,7 +487,7 @@ router.get('/metrics/question/:questionId', async (req, res, next) => {
       where: { questionId },
     });
 
-    let analysis: any = {
+    const analysis: Record<string, unknown> = {
       questionId,
       questionType: question.type,
       totalResponses: answers.length,
@@ -481,7 +495,7 @@ router.get('/metrics/question/:questionId', async (req, res, next) => {
 
     switch (question.type) {
       case QuestionType.SINGLE:
-      case QuestionType.MULTI:
+      case QuestionType.MULTI: {
         const valueCounts: Record<string, number> = {};
         answers.forEach(answer => {
           answer.choiceValues.forEach(value => {
@@ -490,10 +504,11 @@ router.get('/metrics/question/:questionId', async (req, res, next) => {
         });
         analysis.distribution = valueCounts;
         break;
+      }
 
       case QuestionType.LIKERT:
       case QuestionType.NPS:
-      case QuestionType.NUMBER:
+      case QuestionType.NUMBER: {
         const numbers = answers
           .map(a => a.numberValue)
           .filter((n): n is number => n !== null);
@@ -514,9 +529,10 @@ router.get('/metrics/question/:questionId', async (req, res, next) => {
           analysis.distribution = bins;
         }
         break;
+      }
 
       case QuestionType.TEXT:
-      case QuestionType.LONGTEXT:
+      case QuestionType.LONGTEXT: {
         const texts = answers
           .map(a => a.textValue)
           .filter((t): t is string => t !== null && t.length > 0);
@@ -526,6 +542,7 @@ router.get('/metrics/question/:questionId', async (req, res, next) => {
           return acc + text.split(/\s+/).length;
         }, 0);
         break;
+      }
     }
 
     return sendSuccess(res, analysis);
@@ -564,11 +581,11 @@ router.post('/import', validate(importSurveySchema), async (req, res, next) => {
         description,
         isActive: false,
         sections: {
-          create: sections.map((section: any, sectionIdx: number) => ({
+          create: sections.map((section: ImportSection, sectionIdx: number) => ({
             title: section.title,
             order: sectionIdx + 1,
             questions: {
-              create: section.questions.map((q: any, qIdx: number) => ({
+              create: section.questions.map((q: ImportQuestion, qIdx: number) => ({
                 type: q.type as QuestionType,
                 prompt: q.prompt,
                 helpText: q.helpText,
@@ -602,7 +619,7 @@ router.post('/import', validate(importSurveySchema), async (req, res, next) => {
     // Audit log
     await prisma.auditLog.create({
       data: {
-        adminId: (req.user as any)?.id,
+    adminId: (req.user as { id?: string } | null)?.id,
         action: 'IMPORT_SURVEY',
         entity: 'Survey',
         entityId: survey.id,
@@ -638,7 +655,7 @@ router.get('/export/responses.csv', async (req, res, next) => {
 
     // Flatten data for CSV
     const rows = submissions.map(submission => {
-      const row: any = {
+      const row: Record<string, string | number | boolean> = {
         submission_id: submission.id,
         event_slug: submission.eventSlug,
         created_at: submission.createdAt.toISOString(),
@@ -666,7 +683,7 @@ router.get('/export/responses.csv', async (req, res, next) => {
     // Audit log
     await prisma.auditLog.create({
       data: {
-        adminId: (req.user as any)?.id,
+  adminId: (req.user as { id?: string } | null)?.id,
         action: 'EXPORT_RESPONSES',
         entity: 'Survey',
         entityId: surveyId as string,
@@ -712,7 +729,7 @@ router.get('/export/contacts.csv', async (req, res, next) => {
     // Audit log
     await prisma.auditLog.create({
       data: {
-        adminId: (req.user as any)?.id,
+  adminId: (req.user as { id?: string } | null)?.id,
         action: 'EXPORT_CONTACTS',
         meta: { eventSlug },
       },
