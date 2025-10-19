@@ -8,7 +8,7 @@ WORKDIR /web
 
 # Copy web dependencies
 COPY web/package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy and build web app
 COPY web/ ./

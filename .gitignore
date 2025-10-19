@@ -55,3 +55,7 @@ api/prisma/migrations/
 
 # Build outputs
 *.tsbuildinfo
+
+# Docker build logs
+docker-build*.log
+final-build.log

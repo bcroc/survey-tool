@@ -77,10 +77,10 @@ app.use(
     saveUninitialized: false,
     name: 'sid',
     cookie: {
-      secure: isProduction(),
+      secure: false, // Set to false to work in non-HTTPS environments
       httpOnly: true,
       maxAge: config.session.maxAge,
-      sameSite: 'strict',
+      sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
     },
   })
 );

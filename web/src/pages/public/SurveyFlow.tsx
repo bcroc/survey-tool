@@ -110,13 +110,15 @@ export default function SurveyFlow() {
         // If surveyId is provided in URL, use it. Otherwise load active survey
         let surveyData;
         if (surveyId && surveyId !== 'undefined') {
-          surveyData = await surveyAPI.getById(surveyId);
+          const response = await surveyAPI.getById(surveyId);
+          surveyData = response.data;
         } else {
-          surveyData = await surveyAPI.getActive(DEFAULT_EVENT_SLUG);
+          const response = await surveyAPI.getActive(DEFAULT_EVENT_SLUG);
+          surveyData = response.data;
         }
-        setSurvey(surveyData.data);
+        setSurvey(surveyData);
         const sub = await submissionAPI.create({ 
-          surveyId: surveyData.data.id, 
+          surveyId: surveyData.id, 
           eventSlug: DEFAULT_EVENT_SLUG 
         });
         setSubmissionId(sub.data.submissionId);
