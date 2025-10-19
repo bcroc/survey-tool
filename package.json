@@ -1,0 +1,32 @@
+{
+  "name": "event-survey-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack event survey web application - Simplified 2-container architecture",
+  "workspaces": [
+    "api",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=api\" \"npm run dev --workspace=web\"",
+    "build": "npm run build --workspace=web && npm run build --workspace=api",
+    "test": "npm run test --workspace=api && npm run test --workspace=web",
+    "db:push": "npm run db:push --workspace=api",
+    "db:migrate": "npm run db:migrate --workspace=api",
+    "seed": "npm run seed --workspace=api",
+    "lint": "npm run lint --workspace=api && npm run lint --workspace=web",
+    "format": "npm run format --workspace=api && npm run format --workspace=web",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f app",
+    "docker:build": "docker-compose build",
+    "docker:rebuild": "docker-compose down && docker-compose build && docker-compose up -d"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

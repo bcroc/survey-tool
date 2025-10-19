@@ -1,0 +1,42 @@
+services:
+  # Database - PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: event-survey-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: event_survey
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Unified Application - API + Frontend
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: event-survey-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/event_survey?schema=public
+      NODE_ENV: production
+      PORT: 3001
+    env_file:
+      - .env
+    ports:
+      - "3001:3001"
+    command: npm run start
+
+volumes:
+  postgres_data:
