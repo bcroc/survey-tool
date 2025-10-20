@@ -45,7 +45,20 @@ export default {
     { pattern: /^border-(gray|primary|blue|red|green)-(50|100|200|300|400|500|600|700|800|900)$/ },
     { pattern: /^ring(-offset)?(-primary)?/ },
     { pattern: /^(btn|input|card|label|skeleton|sr-only)/ },
-    { pattern: /^focus:|^hover:|^disabled:/ },
+    { pattern: /^hover:.*$/ },
+    { pattern: /^focus:.*$/ },
+    { pattern: /^disabled:.*$/ },
+    // common utilities used with @apply
+    { pattern: /^(text|px|py|p|rounded|font|transition|duration|shadow|whitespace|w-|h-|m-|ring|animate|absolute|block|mb-|mt-|bg-|text-|border-).*/ },
   ],
   plugins: [],
+  // Ensure important core plugins are enabled during migration
+  corePlugins: {
+    preflight: true,
+    container: true,
+    // keep other core plugins enabled by default
+  },
+  experimental: {
+    // Enable any v4 experimental flags if needed (kept conservative)
+  },
 }

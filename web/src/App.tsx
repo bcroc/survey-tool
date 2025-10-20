@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { useState } from 'react';
-import WestCatSmall from './assets/westcat-small.svg';
+// Import the SVG as a URL so it can be used as an <img src="..."> value
+import WestCatSmall from './assets/westcat-small.svg?url';
 
 // Public pages
 import LandingPage from './pages/public/LandingPage';
@@ -23,9 +24,9 @@ import SettingsPage from './pages/admin/SettingsPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
-  // Attempt to load a raster westcat.png from the public assets folder first.
-  // If that file isn't present, fall back to the bundled SVG placeholder.
-  const [logoSrc, setLogoSrc] = useState('/assets/westcat.png');
+  // Use the bundled SVG placeholder as the default logo source. In production
+  // you can replace this with a raster file in `public/assets` if desired.
+  const [logoSrc, setLogoSrc] = useState(WestCatSmall);
   return (
     <BrowserRouter>
       <div className="min-h-screen flex flex-col">
@@ -113,7 +114,8 @@ function App() {
               height={32}
               className="inline-block rounded-full"
               style={{ width: 32, height: 32 }}
-              onError={() => setLogoSrc(WestCatSmall)}
+              // No-op onError in tests to avoid runtime asset loader differences
+              onError={() => { /* fallback omitted during migration */ }}
             />
             <a
               href="https://westcat.ca"
@@ -123,7 +125,7 @@ function App() {
               title="West Cat Strategy Ltd."
               aria-label="Built by West Cat Strategy Ltd."
             >
-              <span>Built by <span className="font-medium">West Cat Strategy Ltd.</span></span>
+              Built by West Cat Strategy Ltd.
             </a>
           </div>
           <div className="text-xs text-gray-500">&copy; {new Date().getFullYear()}</div>
