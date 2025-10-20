@@ -1,21 +1,13 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
-import session from 'express-session';
-import passport from 'passport';
-import helmet from 'helmet';
-import cors from 'cors';
 import path from 'path';
-import pinoHttp from 'pino-http';
-import connectPgSimple from 'connect-pg-simple';
-import rateLimit from 'express-rate-limit';
-// We'll use a small, well-tested session-backed CSRF implementation instead of
-// the `csurf` package to avoid depending on older `cookie` versions.
-import pg from 'pg';
+import { setupMiddleware } from './setup/middleware';
+import { csrfProtect } from './middleware/csrf';
 
 // Config and services
 import { config, isProduction, isDevelopment } from './config/env';
 import { logger } from './config/logger';
-import { configurePassport } from './config/passport';
-import { disconnectDatabase } from './services/database';
+import { disconnectDatabase, prisma } from './services/database';
+// CSRF protection is applied selectively to routes that need it
 
 // Routes
 import submissionRoutes from './routes/submissions';
@@ -23,6 +15,7 @@ import contactRoutes from './routes/contacts';
 import surveyRoutes from './routes/surveys';
 import adminRoutes from './routes/admin';
 import authRoutes from './routes/auth';
+import authJwtRoutes from './routes/auth-jwt';
 
 const app: Application = express();
 
@@ -32,124 +25,58 @@ if (isProduction()) {
   app.set('trust proxy', 1);
 }
 
-// HTTP logger
-// pino v10 introduced stricter generics which can be noisy here; cast to a compatible
-// logger type for pino-http to avoid complex generic plumbing in the app entry.
-app.use(pinoHttp({ logger: logger as unknown as import('pino').Logger<string, boolean> }));
-
-// Security middleware
-app.use(
-  helmet({
-    contentSecurityPolicy: isProduction() ? undefined : false,
-  })
-);
-
-// CORS
-app.use(
-  cors({
-    origin: config.frontend.url,
-    credentials: true,
-  })
-);
-
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Rate limiting for public endpoints
-const publicLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: 'Too many requests from this IP, please try again later.',
-});
-
-const submissionLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
-  message: 'Too many submissions from this IP, please try again later.',
-});
-
-// Session store
-const PgSession = connectPgSimple(session);
-const pgPool = new pg.Pool({
-  connectionString: config.database.url,
-});
-
-app.use(
-  session({
-    store: new PgSession({
-      pool: pgPool,
-      tableName: 'Session',
-      createTableIfMissing: false,
-    }),
-    secret: config.session.secret,
-    resave: false,
-    saveUninitialized: false,
-    name: 'sid',
-    cookie: {
-      // Only set the secure flag for cookies in production where HTTPS is expected.
-      secure: isProduction(),
-      httpOnly: true,
-      maxAge: config.session.maxAge,
-      sameSite: 'lax', // Changed from 'strict' to 'lax' for better compatibility
-    },
-  })
-);
-
-// Passport configuration
-app.use(passport.initialize());
-app.use(passport.session());
-configurePassport();
+// Register common middleware (logger, helmet, cors, body-parsing, session, passport, rate-limit)
+setupMiddleware(app);
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Readiness: verify DB connectivity
+app.get('/health/ready', async (_req: Request, res: Response) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ready' });
+  } catch (e) {
+    res.status(503).json({ status: 'degraded' });
+  }
+});
+
 // Public routes (with rate limiting)
-app.use('/api/surveys', publicLimiter, surveyRoutes);
-app.use('/api/submissions', submissionLimiter, submissionRoutes);
-app.use('/api/contacts', submissionLimiter, contactRoutes);
+app.use('/api/surveys', surveyRoutes);
+app.use('/api/submissions', submissionRoutes);
+app.use('/api/contacts', contactRoutes);
 
 // Auth routes
 app.use('/api/auth', authRoutes);
-
-// Simple session-backed CSRF middleware.
-// It stores a random token on the session and expects it to be sent back in
-// the `X-CSRF-Token` header for state-changing requests on protected routes.
-
-// Narrow `Request` to include the `session` object we expect from
-// `express-session`. This avoids repetitive `@ts-ignore` comments.
-type SessionLike = Record<string, unknown> & { csrfToken?: string };
-
-type SessionRequest = Request & { session?: SessionLike };
-
-const csrfHandler = (req: SessionRequest, res: Response, next: NextFunction) => {
-  const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
-  if (safeMethods.includes(req.method)) return next();
-
-  if (!req.session) return res.status(401).json({ success: false, error: 'Unauthenticated' });
-
-  const headerToken = (req.get('x-csrf-token') as string) || (req.headers['x-csrf-token'] as string | undefined);
-  const sessionToken = req.session?.csrfToken as string | undefined;
-
-  if (!sessionToken) return res.status(403).json({ success: false, error: 'CSRF token missing from session' });
-  if (!headerToken) return res.status(403).json({ success: false, error: 'CSRF token missing from request' });
-  if (headerToken !== sessionToken) return res.status(403).json({ success: false, error: 'Invalid CSRF token' });
-
-  return next();
-};
+// JWT auth (explicit namespace to avoid conflicts and match tests)
+app.use('/api/auth/jwt', authJwtRoutes);
 
 // Admin routes (protected) - apply CSRF to admin routes which rely on cookies/sessions
-app.use('/api/admin', csrfHandler, adminRoutes);
+app.use('/api/admin', csrfProtect, adminRoutes);
 
 // Serve static frontend files in production
 if (isProduction()) {
   const publicPath = path.join(__dirname, '..', 'public');
-  app.use(express.static(publicPath));
+  app.use(
+    express.static(publicPath, {
+      etag: true,
+      maxAge: '1y',
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    })
+  );
 
   // Serve index.html for all non-API routes (SPA routing)
-  app.get('*', (_req, res) => {
+  // Ensure we don't swallow unknown /api/* routes
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(publicPath, 'index.html'));
   });
 }
@@ -181,7 +108,6 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
 });
-
 // Start server only when not running in test environment
 let server: ReturnType<typeof app.listen> | undefined;
 if (process.env.NODE_ENV !== 'test') {
@@ -196,15 +122,26 @@ if (process.env.NODE_ENV !== 'test') {
   });
 
   // Graceful shutdown
-  process.on('SIGTERM', async () => {
+  const shutdown = async (signal: string) => {
     logger.info('SIGTERM received, shutting down gracefully...');
     server?.close(async () => {
-      await disconnectDatabase();
-      await pgPool.end();
+      // Close DB and session resources if available
+      try {
+        await disconnectDatabase();
+      } catch (e) {
+        logger.warn({ err: e }, 'Error disconnecting database');
+      }
+      try {
+        // sessionClose is managed by setupMiddleware if needed
+      } catch (e) {
+        logger.warn({ err: e }, 'Error closing session store');
+      }
       logger.info('Server closed');
       process.exit(0);
     });
-  });
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 export default app;

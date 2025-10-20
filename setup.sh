@@ -1,2 +1,2 @@
 #!/bin/sh
-echo "This file was moved to docs/archived-scripts/setup.sh. Open that file to view the original script."
+echo "This project no longer ships archived setup scripts. See README.md for current setup instructions."

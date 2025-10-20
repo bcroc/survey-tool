@@ -1,8 +1,8 @@
-A full-stack survey application. The original verbose README has been archived to `docs/README_FULL_ORIGINAL.md` for reference.
+A full-stack survey application. See the `docs/` folder for full documentation and guides.
 
 ## 🚀 Quick Start
 
-This repository contains a full-stack survey application. The original verbose README has been archived to `docs/README_FULL_ORIGINAL.md` for reference.
+This repository contains a full-stack survey application. See the `docs/` folder for full documentation and guides.
 
 Prerequisites
 - Node.js 18+ and npm 9+, or Docker & Docker Compose (recommended)
@@ -199,6 +199,35 @@ That's it! The application includes:- No separate web server needed!
 
 ### Option 2: Local Development- Chart.js (visualizations)
 
+## Production Readiness
+
+- Response compression enabled; `x-powered-by` disabled.
+- Optional `JWT_SECRET` env; JWT uses dedicated secret when provided.
+- Static files served with long-lived cache headers; `index.html` is no-cache.
+- Graceful shutdown on SIGTERM/SIGINT; Docker `HEALTHCHECK` hits `/health`.
+- Readiness probe at `/health/ready` validates DB connectivity.
+- Container start runs `prisma migrate deploy` via `start.sh`.
+- Final image runs as non-root `node` user; CA certificates installed.
+- `.dockerignore` added to shrink Docker build context.
+
+Set production env vars:
+
+```
+NODE_ENV=production
+PORT=3001
+DATABASE_URL=postgresql://user:pass@host:5432/db?schema=public
+SESSION_SECRET=<32+ random chars>
+JWT_SECRET=<32+ random chars>
+FRONTEND_URL=https://your-frontend-origin
+```
+
+Health endpoints:
+
+```
+GET /health         # liveness
+GET /health/ready   # readiness (DB ping)
+```
+
 - React Testing Library + Vitest
 
 ```bash
@@ -268,6 +297,20 @@ npm run dev- (Optional) Node.js >= 18.0.0 for local development
 5. Seed with sample data
 
 ```
+
+Production (recommended)
+
+For local production-style testing we provide a dedicated compose file that builds optimized images for the API and the Web and runs an nginx front-end proxy.
+
+1. Copy `.env.example` to `.env` and set secure values.
+2. Build and run the production stack:
+
+```bash
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+See `docker/README-prod.md` for notes on CI, image publishing, and TLS.
+
 
 survey-tool/**Manual Docker setup:**
 

@@ -37,5 +37,15 @@ export default {
       },
     },
   },
+  // Temporary safelist to help migrate to Tailwind v4 while keeping existing utility usage.
+  // This forces generation of commonly-used utilities until we complete a thorough migration.
+  safelist: [
+    { pattern: /^bg-(gray|primary|blue|red|green)-(50|100|200|300|400|500|600|700|800|900|950)$/ },
+    { pattern: /^text-(gray|primary|blue|red|green)-(50|100|200|300|400|500|600|700|800|900)$/ },
+    { pattern: /^border-(gray|primary|blue|red|green)-(50|100|200|300|400|500|600|700|800|900)$/ },
+    { pattern: /^ring(-offset)?(-primary)?/ },
+    { pattern: /^(btn|input|card|label|skeleton|sr-only)/ },
+    { pattern: /^focus:|^hover:|^disabled:/ },
+  ],
   plugins: [],
 }

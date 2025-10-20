@@ -4,7 +4,9 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    /* explicit colors to remain compatible with Tailwind v4 during migration */
+    background-color: #f9fafb; /* gray-50 */
+    color: #111827; /* gray-900 */
   }
 
   h1 {
@@ -21,12 +23,14 @@
 
   /* Enhanced focus indicators for accessibility */
   button, a, input, select, textarea {
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500;
+    outline: none;
+    /* fallback ring style - primary-500 from tailwind.config */
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.5);
   }
 
   /* Ensure focus is visible for all interactive elements */
   *:focus-visible {
-    @apply ring-2 ring-primary-500 ring-offset-2;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.5);
   }
 }
 
@@ -40,7 +44,10 @@
   }
 
   .btn-secondary {
-    @apply btn bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed;
+    /* gray-200 and gray-300 fallbacks */
+    @apply btn; /* keep spacing and layout via tailwind */
+    background-color: #e5e7eb; /* gray-200 */
+    color: #111827; /* gray-900 */
   }
 
   .btn-danger {
@@ -48,7 +55,9 @@
   }
 
   .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed;
+    @apply w-full px-4 py-2 border rounded-lg;
+    border-color: #d1d5db; /* gray-300 */
+    background-color: white;
   }
 
   .card {
@@ -64,7 +73,8 @@
   }
 
   .skeleton {
-    @apply animate-pulse bg-gray-200 rounded;
+    @apply animate-pulse rounded;
+    background-color: #e5e7eb; /* gray-200 */
   }
 
   /* Screen reader only utility */

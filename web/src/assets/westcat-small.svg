@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <rect width="48" height="48" rx="8" fill="transparent" />
+  <!-- Simple calico cat head silhouette inspired placeholder -->
+  <path d="M31 12c-1.5-1.8-3.8-3-6-3-2 0-3.9.8-5.3 2.1C17.8 12.7 16 15 16 18c0 5 5 9 8 9s8-4 8-9c0-1.8-.5-3.3-1-4.8z" fill="#111827" />
+  <path d="M18 18c0-2.2 1.8-4 4-4 0 0 0 4-4 4z" fill="#F97316" opacity="0.95" />
+  <circle cx="24" cy="17" r="1.6" fill="#06B6D4" />
+</svg>

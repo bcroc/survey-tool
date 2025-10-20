@@ -11,6 +11,30 @@ const api = axios.create({
   },
 });
 
+// Simple token storage helper (persist in localStorage so page reloads keep admin logged in)
+const TOKEN_KEY = 'auth.token';
+export const setAuthToken = (token: string | null) => {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+};
+
+// Attach Authorization header from localStorage for API requests when present.
+api.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+      if (!config.headers) config.headers = {} as any;
+      (config.headers as any).Authorization = `Bearer ${token}`;
+    }
+  } catch (e) {
+    // ignore localStorage failures
+  }
+  return config;
+});
+
 // In-memory CSRF token cache
 let csrfToken: string | null = null;
 

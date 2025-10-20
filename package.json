@@ -28,10 +28,12 @@
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f app",
     "docker:build": "docker-compose build",
-    "docker:rebuild": "docker-compose down && docker-compose build && docker-compose up -d"
+    "docker:rebuild": "docker-compose down && docker-compose build && docker-compose up -d",
+    "clean": "npm run clean --workspace=web && npm run clean --workspace=api && rm -f docker-build*.log final-build.log",
+    "clean:all": "npm run clean && rm -rf web/dist api/dist"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^9.2.1"
   },
   "engines": {
     "node": ">=18.0.0",

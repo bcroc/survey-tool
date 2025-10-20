@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import passport from 'passport';
+import { mixedAuth } from '../middleware/mixedAuth';
+import bcrypt from 'bcrypt';
+import { prisma } from '../services/database';
+import { signJwt } from '../utils/jwt';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { sendSuccess, sendError } from '../utils/response';
-import crypto from 'crypto';
 
 const router = Router();
 
@@ -21,7 +23,7 @@ const loginSchema = z.object({
 });
 
 // Login
-router.post('/login', loginLimiter, async (req, res, next) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     // Validate input early to avoid unnecessary work
     loginSchema.parse(req.body);
@@ -30,87 +32,46 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     return sendError(res, msg || 'Invalid login payload', 400);
   }
 
-  passport.authenticate('local', (err: Error | null, user: { id: string; email: string } | false, info?: { message?: string }) => {
-    if (err) {
-      return next(err);
-    }
+  const { email, password } = req.body as { email: string; password: string };
+  try {
+    const user = await prisma.adminUser.findUnique({ where: { email } });
+    if (!user) return sendError(res, 'Authentication failed', 401);
 
-    if (!user) {
-      return sendError(res, info?.message || 'Authentication failed', 401);
-    }
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) return sendError(res, 'Authentication failed', 401);
 
-    req.logIn(user, (loginErr?: Error) => {
-      if (loginErr) {
-        return next(loginErr);
-      }
-      // Regenerate session to prevent session fixation attacks
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore - express-session augments Request with `session`
-      req.session.regenerate((regenErr?: Error | null) => {
-        if (regenErr) {
-          return next(regenErr);
-        }
-        // Re-attach user to session
-        req.logIn(user, (loginErr2?: Error) => {
-          if (loginErr2) {
-            return next(loginErr2);
-          }
-          return sendSuccess(res, { user: { email: user.email } });
-        });
-      });
-    });
-  })(req, res, next);
+    // Update last login and audit
+    await prisma.adminUser.update({ where: { id: user.id }, data: { lastLogin: new Date() } });
+    await prisma.auditLog.create({ data: { adminId: user.id, action: 'LOGIN' } });
+
+    const token = signJwt({ id: user.id, email: user.email });
+    return sendSuccess(res, { token });
+  } catch (e) {
+    return sendError(res, 'Server error', 500);
+  }
 });
 
 // Logout
-router.post('/logout', (req, res, next) => {
-  // Destroy session and logout
-  req.logout((err) => {
-    if (err) return next(err);
-
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - express-session augments Request with `session`
-    req.session.destroy((destroyErr?: Error | null) => {
-      if (destroyErr) {
-        return sendError(res, 'Logout failed', 500);
-      }
-      // Clear cookie on client
-      res.clearCookie('sid');
-      return sendSuccess(res, { loggedOut: true });
-    });
-  });
+// Stateless logout: client should discard token. We return success to keep parity.
+router.post('/logout', (_req, res) => {
+  return sendSuccess(res, { loggedOut: true });
 });
 
 // Check authentication status
-router.get('/me', (req, res) => {
-  if (req.isAuthenticated()) {
+// Accept session or JWT
+router.get('/me', mixedAuth, (req, res) => {
+  if ((req as any).user) {
     return sendSuccess(res, { authenticated: true, user: req.user });
   }
   return sendSuccess(res, { authenticated: false });
 });
+//
+// CSRF token endpoint (useful for SPA to fetch token for stateful requests)
+// This endpoint is session-specific; JWT clients should rely on Authorization header
+router.get('/csrf-token', (req, res) => {
+  const sessionToken = (req as any).session?.csrfToken as string | undefined;
+  if (!sessionToken) return sendError(res, 'No session CSRF token available. Use Authorization header with JWT for stateless requests.', 204);
+  return sendSuccess(res, { csrfToken: sessionToken });
+});
 
 export default router;
-
-// CSRF token endpoint (useful for SPA to fetch token for stateful requests)
-// Note: if csurf middleware is not active on the route that will receive the token,
-// req.csrfToken may be undefined. This endpoint should be called from the frontend
-// prior to making protected admin requests.
-router.get('/csrf-token', (req, res) => {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - express-session augments Request with `session`
-  if (!req.session) return sendError(res, 'Unauthenticated', 401);
-
-  // Ensure a token exists on the session
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  if (!req.session.csrfToken) {
-    // 32 bytes -> 64 hex chars
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    req.session.csrfToken = crypto.randomBytes(32).toString('hex');
-  }
-
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  return sendSuccess(res, { csrfToken: req.session.csrfToken });
-});
