@@ -10,7 +10,7 @@ export default function ContactPage() {
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
-  const [consent, setConsent] = useState(true);
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 

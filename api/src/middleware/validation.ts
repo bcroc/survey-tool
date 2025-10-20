@@ -15,10 +15,12 @@ function createValidator(type: ValidationType) {
         next();
       } catch (error) {
         if (error instanceof ZodError) {
-          const details = error.errors.map((e) => ({
-            path: e.path.join('.'),
-            message: e.message,
-            code: e.code,
+          // Zod v4 exposes validation problems via `issues`
+          const issues = (error as unknown as { issues?: Array<any> }).issues ?? [];
+          const details = issues.map((e: any) => ({
+            path: Array.isArray(e.path) ? e.path.join('.') : String(e.path ?? ''),
+            message: String(e.message ?? 'Invalid input'),
+            code: String(e.code ?? ''),
           }));
           return sendValidationError(res, `${type.charAt(0).toUpperCase() + type.slice(1)} validation failed`, details);
         }

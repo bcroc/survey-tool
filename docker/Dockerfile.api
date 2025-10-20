@@ -1,0 +1,44 @@
+### API production Dockerfile - multi-stage, builds Prisma, compiles TypeScript, produces slim runtime image
+FROM node:18-bullseye-slim AS builder
+WORKDIR /app
+
+# Install dependencies including dev for build
+COPY api/package*.json ./
+RUN apt-get update -y && apt-get install -y --no-install-recommends ca-certificates build-essential curl && rm -rf /var/lib/apt/lists/*
+RUN npm ci --legacy-peer-deps
+
+# Copy source and build
+COPY tsconfig.base.json ../tsconfig.base.json
+COPY api/ ./
+RUN npx prisma generate && npm run build && npm prune --omit=dev
+
+### Runtime
+FROM node:18-bullseye-slim AS runtime
+WORKDIR /app
+
+# Install minimal OS deps required by Prisma
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Copy built app and node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
+COPY api/package*.json ./
+COPY api/scripts/start.sh ./start.sh
+RUN chmod +x ./start.sh
+
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV PRISMA_HIDE_UPDATE_MESSAGE=1
+
+# Prefer non-root user
+RUN groupadd -r app && useradd -r -g app -m app
+RUN chown -R app:app /app
+USER app
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:' + (process.env.PORT||3001) + '/health', res => { if (res.statusCode!==200) process.exit(1); }).on('error', () => process.exit(1));"
+
+CMD ["./start.sh"]

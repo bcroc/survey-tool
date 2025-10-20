@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Parser } from 'json2csv';
 import { prisma } from '../services/database';
 import type { Prisma } from '@prisma/client';
-import { requireAuth } from '../middleware/auth';
+import { mixedAuth } from '../middleware/mixedAuth';
 import { validate } from '../middleware/validation';
 import { sendSuccess, sendCreated, sendError, sendNotFound } from '../utils/response';
 
@@ -34,8 +34,8 @@ type ImportSection = {
   questions: ImportQuestion[];
 };
 
-// All admin routes require authentication
-router.use(requireAuth);
+// All admin routes require authentication (accept session or JWT)
+router.use(mixedAuth);
 
 // Helper function to create audit log
 async function createAuditLog(

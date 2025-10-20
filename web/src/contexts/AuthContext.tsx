@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authAPI } from '../services/api';
+import { authAPI, setAuthToken } from '../services/api';
 
 interface AuthContextType {
   user: { email: string } | null;
@@ -33,12 +33,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const response = await authAPI.login(email, password);
-    setUser(response.data.user);
+    // If server returns a token, persist it so future requests include Authorization header
+    const token = response.data?.token as string | undefined;
+    if (token) setAuthToken(token);
+    // Server's /auth/me will return user when token is valid; optimistically set user if included
+    if (response.data?.user) {
+      setUser(response.data.user);
+    } else {
+      // Re-check auth status (uses Authorization header interceptor)
+      await checkAuth();
+    }
   };
 
   const logout = async () => {
-    await authAPI.logout();
-    setUser(null);
+    try {
+      await authAPI.logout();
+    } finally {
+      // Always clear token locally
+      setAuthToken(null);
+      setUser(null);
+    }
   };
 
   return (

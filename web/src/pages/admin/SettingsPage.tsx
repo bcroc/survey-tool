@@ -12,7 +12,7 @@ export default function SettingsPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await adminAPI.getAuditLog(50, 0);
+      const res = await adminAPI.getAuditLog({ limit: 50, offset: 0 });
       setLogs(res.data);
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to load audit logs');

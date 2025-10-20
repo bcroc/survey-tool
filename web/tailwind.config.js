@@ -37,5 +37,28 @@ export default {
       },
     },
   },
+  // Temporary safelist to help migrate to Tailwind v4 while keeping existing utility usage.
+  // This forces generation of commonly-used utilities until we complete a thorough migration.
+  safelist: [
+    { pattern: /^bg-(gray|primary|blue|red|green)-(50|100|200|300|400|500|600|700|800|900|950)$/ },
+    { pattern: /^text-(gray|primary|blue|red|green)-(50|100|200|300|400|500|600|700|800|900)$/ },
+    { pattern: /^border-(gray|primary|blue|red|green)-(50|100|200|300|400|500|600|700|800|900)$/ },
+    { pattern: /^ring(-offset)?(-primary)?/ },
+    { pattern: /^(btn|input|card|label|skeleton|sr-only)/ },
+    { pattern: /^hover:.*$/ },
+    { pattern: /^focus:.*$/ },
+    { pattern: /^disabled:.*$/ },
+    // common utilities used with @apply
+    { pattern: /^(text|px|py|p|rounded|font|transition|duration|shadow|whitespace|w-|h-|m-|ring|animate|absolute|block|mb-|mt-|bg-|text-|border-).*/ },
+  ],
   plugins: [],
+  // Ensure important core plugins are enabled during migration
+  corePlugins: {
+    preflight: true,
+    container: true,
+    // keep other core plugins enabled by default
+  },
+  experimental: {
+    // Enable any v4 experimental flags if needed (kept conservative)
+  },
 }

@@ -4,86 +4,150 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    /* explicit colors to remain compatible with Tailwind v4 during migration */
+    background-color: #f9fafb; /* gray-50 */
+    color: #111827; /* gray-900 */
   }
 
   h1 {
-    @apply text-3xl font-bold;
+    font-size: 1.875rem; /* text-3xl */
+    line-height: 2.25rem;
+    font-weight: 700;
   }
 
   h2 {
-    @apply text-2xl font-semibold;
+    font-size: 1.5rem; /* text-2xl */
+    line-height: 2rem;
+    font-weight: 600;
   }
 
   h3 {
-    @apply text-xl font-semibold;
+    font-size: 1.25rem; /* text-xl */
+    line-height: 1.75rem;
+    font-weight: 600;
   }
 
   /* Enhanced focus indicators for accessibility */
   button, a, input, select, textarea {
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500;
+    outline: none;
+    /* fallback ring style - primary-500 from tailwind.config */
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.5);
   }
 
   /* Ensure focus is visible for all interactive elements */
   *:focus-visible {
-    @apply ring-2 ring-primary-500 ring-offset-2;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.5);
   }
 }
 
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    padding-left: 1rem; /* px-4 */
+    padding-right: 1rem;
+    padding-top: 0.5rem; /* py-2 */
+    padding-bottom: 0.5rem;
+    border-radius: 0.5rem; /* rounded-lg */
+    font-weight: 500; /* font-medium */
+    transition: background-color 200ms ease-in-out;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed;
+    /* primary-600 */
+    background-color: #2563eb;
+    color: white;
   }
+  .btn-primary:hover { background-color: #1d4ed8; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .btn-secondary {
-    @apply btn bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: #e5e7eb; /* gray-200 */
+    color: #111827; /* gray-900 */
   }
+  .btn-secondary:hover { background-color: #d1d5db; }
 
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: #dc2626; /* red-600 */
+    color: #fff;
   }
+  .btn-danger:hover { background-color: #b91c1c; }
 
   .input {
-    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed;
+    width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db; /* gray-300 */
+    background-color: white;
+    box-sizing: border-box;
   }
 
   .card {
-    @apply bg-white rounded-lg shadow-md p-6;
+    background-color: #ffffff;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.06);
+    padding: 1.5rem; /* p-6 */
   }
 
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-2;
+    display: block;
+    font-size: 0.875rem; /* text-sm */
+    font-weight: 500;
+    color: #374151; /* gray-700 */
+    margin-bottom: 0.5rem;
   }
 
   .error-text {
-    @apply text-sm text-red-600 mt-1;
+    font-size: 0.875rem;
+    color: #dc2626; /* red-600 */
+    margin-top: 0.25rem;
   }
 
   .skeleton {
-    @apply animate-pulse bg-gray-200 rounded;
+    border-radius: 0.25rem;
+    background-color: #e5e7eb; /* gray-200 */
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
   }
 
   /* Screen reader only utility */
   .sr-only {
-    @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
-    clip: rect(0, 0, 0, 0);
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
   }
 
   /* Screen reader only but focusable */
   .sr-only:focus,
   .sr-only:active {
-    @apply static w-auto h-auto p-1 m-0 overflow-visible whitespace-normal;
-    clip: auto;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    padding: 0.25rem !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    clip: auto !important;
   }
 
   /* High contrast mode support */
   @media (prefers-contrast: high) {
     .btn-primary {
-      @apply ring-2 ring-white;
+      box-shadow: 0 0 0 2px #ffffff;
     }
   }
 
