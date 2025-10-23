@@ -67,7 +67,7 @@ export default function AdminLogin() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="input"
-              placeholder="admin@example.com"
+              placeholder="you@example.com"
               required
               autoFocus
             />
@@ -97,12 +97,7 @@ export default function AdminLogin() {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>Demo credentials:</p>
-          <p className="font-mono text-xs mt-1">
-            admin@example.com / admin123
-          </p>
-        </div>
+        {/* Demo credentials removed for security: no credentials are displayed on the login page */}
       </div>
     </div>
   );
