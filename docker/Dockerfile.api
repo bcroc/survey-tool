@@ -1,16 +1,24 @@
 ### API production Dockerfile - multi-stage, builds Prisma, compiles TypeScript, produces slim runtime image
 FROM node:18-bullseye-slim AS builder
-WORKDIR /app
+WORKDIR /work
 
 # Install dependencies including dev for build
-COPY api/package*.json ./
+COPY package*.json ./
+COPY api/package*.json ./api/
 RUN apt-get update -y && apt-get install -y --no-install-recommends ca-certificates build-essential curl && rm -rf /var/lib/apt/lists/*
-RUN npm ci --legacy-peer-deps
+## Use `npm ci` when a lockfile exists for reproducible installs; fall back to `npm install` otherwise.
+## Try `npm ci` first for reproducible installs; if it fails (lockfile out-of-sync) fall back to `npm install`.
+RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
 # Copy source and build
-COPY tsconfig.base.json ../tsconfig.base.json
-COPY api/ ./
-RUN npx prisma generate && npm run build && npm prune --omit=dev
+COPY tsconfig.base.json ./
+COPY api/ ./api/
+WORKDIR /work/api
+RUN npx prisma generate && npm run build
+
+# Remove dev dependencies while in the api directory
+WORKDIR /work
+RUN npm prune --omit=dev --workspace=api
 
 ### Runtime
 FROM node:18-bullseye-slim AS runtime
@@ -19,10 +27,10 @@ WORKDIR /app
 # Install minimal OS deps required by Prisma
 RUN apt-get update -y && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Copy built app and node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
+# Copy built app from builder
+COPY --from=builder /work/api/dist ./dist
+COPY --from=builder /work/node_modules ./node_modules
+COPY --from=builder /work/api/prisma ./prisma
 COPY api/package*.json ./
 COPY api/scripts/start.sh ./start.sh
 RUN chmod +x ./start.sh

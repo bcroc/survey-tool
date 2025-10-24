@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { surveyAPI } from '../../services/api';
+import { logger } from '../../utils/logger';
+import { surveyAPI, authAPI, setAuthToken } from '../../services/api';
 import type { Survey } from '../../types';
 
 const DEFAULT_EVENT_SLUG = 'fall-summit-2025';
@@ -9,26 +10,78 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
 
   useEffect(() => {
-    loadSurvey();
+    checkSetupAndLoad();
   }, []);
+
+  const checkSetupAndLoad = async () => {
+    try {
+      const res = await authAPI.needsSetup();
+      const needs = res.data?.needsSetup === true || res?.data === true;
+      if (needs) {
+        setNeedsSetup(true);
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      // ignore errors and continue to load survey
+      logger.warn('Failed to check setup status', err);
+    }
+
+    await loadSurvey();
+  };
 
   const loadSurvey = async () => {
     try {
       const response = await surveyAPI.getActive(DEFAULT_EVENT_SLUG);
       setSurvey(response.data);
     } catch (error) {
-      console.error('Failed to load survey:', error);
+      logger.error('Failed to load survey:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const submitSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSetupError(null);
+    if (password !== confirm) {
+      setSetupError('Passwords do not match');
+      return;
+    }
+    setSetupLoading(true);
+    try {
+      const res = await authAPI.setup(email, password);
+      const token = res?.data?.token;
+      if (token) {
+        try {
+          setAuthToken(token);
+        } catch (e) {
+          // ignore localStorage errors
+        }
+      }
+      // Navigate to admin dashboard
+      navigate('/admin');
+    } catch (err) {
+      setSetupError(
+        (err as any)?.response?.data?.error || (err as any)?.message || 'Failed to create admin'
+      );
+    } finally {
+      setSetupLoading(false);
     }
   };
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div 
+        <div
           className="h-12 w-12 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600"
           role="status"
           aria-label="Loading survey"
@@ -56,9 +109,9 @@ export default function LandingPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-blue-100 px-4 py-12">
       <div className="mx-auto max-w-2xl">
         {/* Hero Section */}
-        <div className="card animate-slide-up mb-6 text-center">
+        <div className="card mb-6 animate-slide-up text-center">
           <div className="mb-6">
-            <div className="mx-auto mb-4 h-20 w-20 rounded-full bg-primary-100 flex items-center justify-center">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-primary-100">
               <svg
                 className="h-10 w-10 text-primary-600"
                 fill="none"
@@ -74,9 +127,7 @@ export default function LandingPage() {
               </svg>
             </div>
             <h1 className="mb-2">{survey.title}</h1>
-            {survey.description && (
-              <p className="text-lg text-gray-600">{survey.description}</p>
-            )}
+            {survey.description && <p className="text-lg text-gray-600">{survey.description}</p>}
           </div>
 
           <div className="mb-6 flex items-center justify-center gap-6 text-sm text-gray-600">
@@ -119,77 +170,12 @@ export default function LandingPage() {
 
           <button
             onClick={() => navigate('/privacy')}
-            className="mt-4 text-sm text-primary-600 hover:text-primary-700 underline"
+            className="mt-4 text-sm text-primary-600 underline hover:text-primary-700"
             aria-label="Read our privacy policy"
           >
             Read our Privacy Policy
           </button>
         </div>
-
-        {/* Features */}
-        <section aria-label="Survey features">
-          <div className="grid gap-4 md:grid-cols-3">
-            <article className="card text-center">
-              <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-green-100 flex items-center justify-center" aria-hidden="true">
-                <svg
-                  className="h-6 w-6 text-green-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-sm font-medium">Quick & Easy</h3>
-              <p className="mt-1 text-xs text-gray-600">Complete in under 5 minutes</p>
-            </article>
-
-            <article className="card text-center">
-              <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center" aria-hidden="true">
-                <svg
-                  className="h-6 w-6 text-blue-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-sm font-medium">Private</h3>
-              <p className="mt-1 text-xs text-gray-600">Completely anonymous responses</p>
-            </article>
-
-            <article className="card text-center">
-              <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center" aria-hidden="true">
-                <svg
-                  className="h-6 w-6 text-purple-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-sm font-medium">Offline Ready</h3>
-              <p className="mt-1 text-xs text-gray-600">Works without internet</p>
-            </article>
-          </div>
-        </section>
       </div>
     </div>
   );

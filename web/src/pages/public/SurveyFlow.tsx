@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
+import { logger } from '../../utils/logger';
 import { useNavigate, useParams } from 'react-router-dom';
 import { surveyAPI, submissionAPI } from '../../services/api';
-import type { Answer, BranchAction, Question, QuestionType, Section, ShowIfCondition, Survey } from '../../types';
+import type {
+  Answer,
+  BranchAction,
+  Question,
+  QuestionType,
+  Section,
+  ShowIfCondition,
+  Survey,
+} from '../../types';
 
 const DEFAULT_EVENT_SLUG = 'fall-summit-2025';
 
@@ -25,75 +34,117 @@ export default function SurveyFlow() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>('');
+  const [flowError, setFlowError] = useState<string>('');
   const [sectionChangeAnnouncement, setSectionChangeAnnouncement] = useState<string>('');
 
   const sections: Section[] = useMemo(() => survey?.sections ?? [], [survey]);
   const currentSection: Section | undefined = sections[currentSectionIndex];
   const totalSections = sections.length;
 
+  // Check if a question should be shown based on branching rules (SHOW_QUESTION actions)
+  const isQuestionBranchedTo = (questionId: string): boolean => {
+    if (!currentSection) return false;
+
+    // Check all questions in the section for branching rules that target this question
+    for (const question of currentSection.questions) {
+      const answer = answers[question.id];
+      if (!answer || !answer.choiceValues) continue;
+
+      // Check each selected option for SHOW_QUESTION branching
+      for (const selectedValue of answer.choiceValues) {
+        const option = question.options.find(opt => opt.value === selectedValue);
+        if (
+          option &&
+          option.branchAction === 'SHOW_QUESTION' &&
+          option.targetQuestionId === questionId
+        ) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  };
+
   // Evaluate if a question should be shown based on showIf condition
   const shouldShowQuestion = (question: Question): boolean => {
-    if (!question.showIf) return true;
-    
-    try {
-      const condition: ShowIfCondition = JSON.parse(question.showIf);
-      const answer = answers[condition.questionId];
-      
-      if (!answer) return false;
-      
-      switch (condition.operator) {
-        case 'equals':
-          if (answer.choiceValues && answer.choiceValues.length > 0) {
-            return answer.choiceValues.includes(String(condition.value));
-          }
-          if (answer.textValue !== undefined) {
-            return answer.textValue === condition.value;
-          }
-          if (answer.numberValue !== undefined) {
-            return answer.numberValue === Number(condition.value);
-          }
-          return false;
-          
-        case 'not_equals':
-          if (answer.choiceValues && answer.choiceValues.length > 0) {
-            return !answer.choiceValues.includes(String(condition.value));
-          }
-          if (answer.textValue !== undefined) {
-            return answer.textValue !== condition.value;
-          }
-          if (answer.numberValue !== undefined) {
-            return answer.numberValue !== Number(condition.value);
-          }
-          return false;
-          
-        case 'contains':
-          if (answer.choiceValues && answer.choiceValues.length > 0) {
-            return answer.choiceValues.some(v => v.includes(String(condition.value)));
-          }
-          if (answer.textValue !== undefined) {
-            return answer.textValue.includes(String(condition.value));
-          }
-          return false;
-          
-        case 'greater_than':
-          if (answer.numberValue !== undefined) {
-            return answer.numberValue > Number(condition.value);
-          }
-          return false;
-          
-        case 'less_than':
-          if (answer.numberValue !== undefined) {
-            return answer.numberValue < Number(condition.value);
-          }
-          return false;
-          
-        default:
-          return true;
+    // First check if question has a showIf condition (legacy conditional display)
+    if (question.showIf) {
+      try {
+        const condition: ShowIfCondition = JSON.parse(question.showIf);
+        const answer = answers[condition.questionId];
+
+        if (!answer) return false;
+
+        switch (condition.operator) {
+          case 'equals':
+            if (answer.choiceValues && answer.choiceValues.length > 0) {
+              return answer.choiceValues.includes(String(condition.value));
+            }
+            if (answer.textValue !== undefined) {
+              return answer.textValue === condition.value;
+            }
+            if (answer.numberValue !== undefined) {
+              return answer.numberValue === Number(condition.value);
+            }
+            return false;
+
+          case 'not_equals':
+            if (answer.choiceValues && answer.choiceValues.length > 0) {
+              return !answer.choiceValues.includes(String(condition.value));
+            }
+            if (answer.textValue !== undefined) {
+              return answer.textValue !== condition.value;
+            }
+            if (answer.numberValue !== undefined) {
+              return answer.numberValue !== Number(condition.value);
+            }
+            return false;
+
+          case 'contains':
+            if (answer.choiceValues && answer.choiceValues.length > 0) {
+              return answer.choiceValues.some(v => v.includes(String(condition.value)));
+            }
+            if (answer.textValue !== undefined) {
+              return answer.textValue.includes(String(condition.value));
+            }
+            return false;
+
+          case 'greater_than':
+            if (answer.numberValue !== undefined) {
+              return answer.numberValue > Number(condition.value);
+            }
+            return false;
+
+          case 'less_than':
+            if (answer.numberValue !== undefined) {
+              return answer.numberValue < Number(condition.value);
+            }
+            return false;
+
+          default:
+            return true;
+        }
+      } catch (e) {
+        logger.error('Error evaluating showIf condition:', e);
+        return true;
       }
-    } catch (e) {
-      console.error('Error evaluating showIf condition:', e);
-      return true;
     }
+
+    // Check if this question is targeted by a SHOW_QUESTION branch action
+    // If any question has a SHOW_QUESTION action targeting this one, only show if that action is triggered
+    const hasBranchingRuleTargetingThis = currentSection?.questions.some(q =>
+      q.options.some(
+        opt => opt.branchAction === 'SHOW_QUESTION' && opt.targetQuestionId === question.id
+      )
+    );
+
+    if (hasBranchingRuleTargetingThis) {
+      return isQuestionBranchedTo(question.id);
+    }
+
+    // Default: show the question
+    return true;
   };
 
   // Get visible questions for current section
@@ -117,13 +168,13 @@ export default function SurveyFlow() {
           surveyData = response.data;
         }
         setSurvey(surveyData);
-        const sub = await submissionAPI.create({ 
-          surveyId: surveyData.id, 
-          eventSlug: DEFAULT_EVENT_SLUG 
+        const sub = await submissionAPI.create({
+          surveyId: surveyData.id,
+          eventSlug: DEFAULT_EVENT_SLUG,
         });
         setSubmissionId(sub.data.submissionId);
       } catch (e: any) {
-        console.error('Survey loading error:', e);
+        logger.error('Survey loading error:', e);
         setError(e?.response?.data?.error || e?.message || 'Failed to load survey');
       } finally {
         setLoading(false);
@@ -146,14 +197,14 @@ export default function SurveyFlow() {
   }, [currentSectionIndex, currentSection, sections.length, loading]);
 
   const handleAnswerChange = (q: Question, value: any) => {
-    setAnswers((prev) => {
+    setAnswers(prev => {
       const next = { ...prev } as AnswersMap;
       if (q.type === 'MULTI') {
         const current = (prev[q.id]?.choiceValues ?? []) as string[];
         const exists = current.includes(value);
         next[q.id] = {
           questionId: q.id,
-          choiceValues: exists ? current.filter((v) => v !== value) : [...current, value],
+          choiceValues: exists ? current.filter(v => v !== value) : [...current, value],
         };
       } else if (q.type === 'SINGLE') {
         next[q.id] = { questionId: q.id, choiceValues: [value] };
@@ -167,14 +218,18 @@ export default function SurveyFlow() {
   };
 
   // Evaluate branching rules based on current answers
-  const evaluateBranchingRules = (): { action?: BranchAction; targetSectionId?: string; skipToEnd?: boolean } => {
+  const evaluateBranchingRules = (): {
+    action?: BranchAction;
+    targetSectionId?: string;
+    skipToEnd?: boolean;
+  } => {
     if (!currentSection) return {};
-    
+
     // Check all answered questions in the current section for branching rules
     for (const question of currentSection.questions) {
       const answer = answers[question.id];
       if (!answer || !answer.choiceValues) continue;
-      
+
       // Check each selected option for branching rules
       for (const selectedValue of answer.choiceValues) {
         const option = question.options.find(opt => opt.value === selectedValue);
@@ -183,12 +238,15 @@ export default function SurveyFlow() {
             return { action: 'SKIP_TO_END' as BranchAction, skipToEnd: true };
           }
           if (option.branchAction === 'SKIP_TO_SECTION' && option.targetSectionId) {
-            return { action: 'SKIP_TO_SECTION' as BranchAction, targetSectionId: option.targetSectionId };
+            return {
+              action: 'SKIP_TO_SECTION' as BranchAction,
+              targetSectionId: option.targetSectionId,
+            };
           }
         }
       }
     }
-    
+
     return {};
   };
 
@@ -196,8 +254,10 @@ export default function SurveyFlow() {
     if (!submissionId || !currentSection) return;
     setSaving(true);
     try {
-      const sectionQuestionIds = new Set(currentSection.questions.map((q) => q.id));
-      const sectionAnswers = Object.values(answers).filter((a) => sectionQuestionIds.has(a.questionId));
+      const sectionQuestionIds = new Set(currentSection.questions.map(q => q.id));
+      const sectionAnswers = Object.values(answers).filter(a =>
+        sectionQuestionIds.has(a.questionId)
+      );
       if (sectionAnswers.length > 0) {
         await submissionAPI.submitAnswers(submissionId, sectionAnswers);
       }
@@ -206,19 +266,34 @@ export default function SurveyFlow() {
     }
   };
 
+  const completeSurvey = async () => {
+    if (!submissionId) return;
+    try {
+      const response = await submissionAPI.complete(submissionId);
+      const nextRoute = response?.data?.nextRoute || '/thanks';
+      navigate(nextRoute, { replace: true });
+    } catch (err: any) {
+      logger.error('Survey completion error:', err);
+      setFlowError(
+        err?.response?.data?.error ||
+          err?.message ||
+          'Unable to complete the survey. Please try again.'
+      );
+    }
+  };
+
   const goNext = async () => {
+    setFlowError('');
     await saveCurrentSection();
-    
+
     // Evaluate branching rules
     const branchResult = evaluateBranchingRules();
-    
+
     if (branchResult.skipToEnd) {
-      // Complete survey immediately
-      await submissionAPI.complete(submissionId);
-      navigate('/contact');
+      await completeSurvey();
       return;
     }
-    
+
     if (branchResult.targetSectionId) {
       // Find the target section index
       const targetIndex = sections.findIndex(s => s.id === branchResult.targetSectionId);
@@ -228,29 +303,31 @@ export default function SurveyFlow() {
         return;
       }
     }
-    
+
     // Default behavior: go to next section
     if (currentSectionIndex < totalSections - 1) {
-      setCurrentSectionIndex((i) => i + 1);
+      setCurrentSectionIndex(i => i + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      // Complete survey
-      await submissionAPI.complete(submissionId);
-      navigate('/contact');
+      await completeSurvey();
     }
   };
 
   const goPrev = async () => {
     await saveCurrentSection();
     if (currentSectionIndex > 0) {
-      setCurrentSectionIndex((i) => i - 1);
+      setCurrentSectionIndex(i => i - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const renderQuestion = (q: Question) => {
     const value = answers[q.id];
-    const help = q.helpText ? <p className="mt-1 text-sm text-gray-500" id={`help-${q.id}`}>{q.helpText}</p> : null;
+    const help = q.helpText ? (
+      <p className="mt-1 text-sm text-gray-500" id={`help-${q.id}`}>
+        {q.helpText}
+      </p>
+    ) : null;
     const inputId = `question-${q.id}`;
     const isRequired = q.required;
     const ariaDescribedBy = q.helpText ? `help-${q.id}` : undefined;
@@ -261,14 +338,19 @@ export default function SurveyFlow() {
           <div key={q.id} className="mb-6">
             <label htmlFor={inputId} className="label">
               {q.prompt}
-              {isRequired && <span className="text-red-600" aria-label="required"> *</span>}
+              {isRequired && (
+                <span className="text-red-600" aria-label="required">
+                  {' '}
+                  *
+                </span>
+              )}
             </label>
             <input
               id={inputId}
               type="text"
               className="input"
               value={value?.textValue || ''}
-              onChange={(e) => handleAnswerChange(q, e.target.value)}
+              onChange={e => handleAnswerChange(q, e.target.value)}
               required={isRequired}
               aria-required={isRequired}
               aria-describedby={ariaDescribedBy}
@@ -281,13 +363,18 @@ export default function SurveyFlow() {
           <div key={q.id} className="mb-6">
             <label htmlFor={inputId} className="label">
               {q.prompt}
-              {isRequired && <span className="text-red-600" aria-label="required"> *</span>}
+              {isRequired && (
+                <span className="text-red-600" aria-label="required">
+                  {' '}
+                  *
+                </span>
+              )}
             </label>
             <textarea
               id={inputId}
               className="input min-h-[120px]"
               value={value?.textValue || ''}
-              onChange={(e) => handleAnswerChange(q, e.target.value)}
+              onChange={e => handleAnswerChange(q, e.target.value)}
               required={isRequired}
               aria-required={isRequired}
               aria-describedby={ariaDescribedBy}
@@ -301,24 +388,29 @@ export default function SurveyFlow() {
             <fieldset>
               <legend className="label">
                 {q.prompt}
-                {isRequired && <span className="text-red-600" aria-label="required"> *</span>}
+                {isRequired && (
+                  <span className="text-red-600" aria-label="required">
+                    {' '}
+                    *
+                  </span>
+                )}
               </legend>
               {help}
-              <div className="space-y-2 mt-2" role="radiogroup" aria-required={isRequired}>
-              {q.options.map((opt) => (
-                <label key={opt.id} className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    className="h-4 w-4"
-                    name={q.id}
-                    checked={(value?.choiceValues || [])[0] === opt.value}
-                    onChange={() => handleAnswerChange(q, opt.value)}
-                    aria-label={opt.label}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
-            </div>
+              <div className="mt-2 space-y-2" role="radiogroup" aria-required={isRequired}>
+                {q.options.map(opt => (
+                  <label key={opt.id} className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="radio"
+                      className="h-4 w-4"
+                      name={q.id}
+                      checked={(value?.choiceValues || [])[0] === opt.value}
+                      onChange={() => handleAnswerChange(q, opt.value)}
+                      aria-label={opt.label}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
             </fieldset>
           </div>
         );
@@ -328,23 +420,28 @@ export default function SurveyFlow() {
             <fieldset>
               <legend className="label">
                 {q.prompt}
-                {isRequired && <span className="text-red-600" aria-label="required"> *</span>}
+                {isRequired && (
+                  <span className="text-red-600" aria-label="required">
+                    {' '}
+                    *
+                  </span>
+                )}
               </legend>
               {help}
-              <div className="space-y-2 mt-2" role="group" aria-required={isRequired}>
-              {q.options.map((opt) => (
-                <label key={opt.id} className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={(value?.choiceValues || []).includes(opt.value)}
-                    onChange={() => handleAnswerChange(q, opt.value)}
-                    aria-label={opt.label}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
-            </div>
+              <div className="mt-2 space-y-2" role="group" aria-required={isRequired}>
+                {q.options.map(opt => (
+                  <label key={opt.id} className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={(value?.choiceValues || []).includes(opt.value)}
+                      onChange={() => handleAnswerChange(q, opt.value)}
+                      aria-label={opt.label}
+                    />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
             </fieldset>
           </div>
         );
@@ -354,7 +451,12 @@ export default function SurveyFlow() {
           <div key={q.id} className="mb-6">
             <label htmlFor={inputId} className="label">
               {q.prompt}
-              {isRequired && <span className="text-red-600" aria-label="required"> *</span>}
+              {isRequired && (
+                <span className="text-red-600" aria-label="required">
+                  {' '}
+                  *
+                </span>
+              )}
             </label>
             {help}
             <input
@@ -363,7 +465,7 @@ export default function SurveyFlow() {
               min={1}
               max={5}
               value={v}
-              onChange={(e) => handleAnswerChange(q, e.target.value)}
+              onChange={e => handleAnswerChange(q, e.target.value)}
               className="w-full"
               aria-valuemin={1}
               aria-valuemax={5}
@@ -372,7 +474,9 @@ export default function SurveyFlow() {
               aria-describedby={ariaDescribedBy}
               required={isRequired}
             />
-            <div className="mt-1 text-sm text-gray-600" aria-live="polite">Selected: {v}</div>
+            <div className="mt-1 text-sm text-gray-600" aria-live="polite">
+              Selected: {v}
+            </div>
             {help}
           </div>
         );
@@ -383,7 +487,12 @@ export default function SurveyFlow() {
           <div key={q.id} className="mb-6">
             <label htmlFor={inputId} className="label">
               {q.prompt}
-              {isRequired && <span className="text-red-600" aria-label="required"> *</span>}
+              {isRequired && (
+                <span className="text-red-600" aria-label="required">
+                  {' '}
+                  *
+                </span>
+              )}
             </label>
             {help}
             <input
@@ -392,7 +501,7 @@ export default function SurveyFlow() {
               min={0}
               max={10}
               value={v}
-              onChange={(e) => handleAnswerChange(q, e.target.value)}
+              onChange={e => handleAnswerChange(q, e.target.value)}
               className="w-full"
               aria-valuemin={0}
               aria-valuemax={10}
@@ -401,7 +510,9 @@ export default function SurveyFlow() {
               aria-describedby={ariaDescribedBy}
               required={isRequired}
             />
-            <div className="mt-1 text-sm text-gray-600" aria-live="polite">Selected: {v}</div>
+            <div className="mt-1 text-sm text-gray-600" aria-live="polite">
+              Selected: {v}
+            </div>
           </div>
         );
       }
@@ -410,14 +521,19 @@ export default function SurveyFlow() {
           <div key={q.id} className="mb-6">
             <label htmlFor={inputId} className="label">
               {q.prompt}
-              {isRequired && <span className="text-red-600" aria-label="required"> *</span>}
+              {isRequired && (
+                <span className="text-red-600" aria-label="required">
+                  {' '}
+                  *
+                </span>
+              )}
             </label>
             <input
               id={inputId}
               type="number"
               className="input"
               value={value?.numberValue ?? ''}
-              onChange={(e) => handleAnswerChange(q, e.target.value)}
+              onChange={e => handleAnswerChange(q, e.target.value)}
               required={isRequired}
               aria-required={isRequired}
               aria-describedby={ariaDescribedBy}
@@ -432,7 +548,11 @@ export default function SurveyFlow() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" role="status" aria-live="polite">
+      <div
+        className="flex min-h-screen items-center justify-center"
+        role="status"
+        aria-live="polite"
+      >
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
         <span className="sr-only">Loading survey...</span>
       </div>
@@ -452,17 +572,13 @@ export default function SurveyFlow() {
     );
   }
 
-  const progress = totalSections > 0 ? Math.round(((currentSectionIndex + 1) / totalSections) * 100) : 0;
+  const progress =
+    totalSections > 0 ? Math.round(((currentSectionIndex + 1) / totalSections) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       {/* Live region for screen reader announcements */}
-      <div 
-        className="sr-only" 
-        role="status" 
-        aria-live="polite" 
-        aria-atomic="true"
-      >
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {sectionChangeAnnouncement}
       </div>
 
@@ -475,10 +591,12 @@ export default function SurveyFlow() {
 
           <div className="mb-6">
             <div className="flex items-center justify-between text-sm text-gray-600">
-              <span>Section {currentSectionIndex + 1} of {totalSections}</span>
+              <span>
+                Section {currentSectionIndex + 1} of {totalSections}
+              </span>
               <span>{progress}%</span>
             </div>
-            <div 
+            <div
               className="mt-2 h-2 w-full rounded bg-gray-200"
               role="progressbar"
               aria-valuenow={progress}
@@ -493,7 +611,13 @@ export default function SurveyFlow() {
           {currentSection && (
             <div>
               <h2 className="mb-4">{currentSection.title}</h2>
-              {visibleQuestions.map((q) => renderQuestion(q))}
+              {visibleQuestions.map(q => renderQuestion(q))}
+            </div>
+          )}
+
+          {flowError && (
+            <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-800" role="alert">
+              {flowError}
             </div>
           )}
 
@@ -518,8 +642,8 @@ export default function SurveyFlow() {
                 className="btn-primary"
                 disabled={saving}
                 aria-label={
-                  currentSectionIndex === totalSections - 1 
-                    ? 'Submit survey' 
+                  currentSectionIndex === totalSections - 1
+                    ? 'Submit survey'
                     : `Next section (Section ${currentSectionIndex + 2})`
                 }
                 aria-disabled={saving}

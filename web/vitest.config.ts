@@ -15,4 +15,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    // Inline these deps so vite-node / vitest use the same React runtime and can resolve jsx runtimes
+    deps: {
+      inline: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+    },
+  },
 });

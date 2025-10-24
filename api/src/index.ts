@@ -2,11 +2,13 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { setupMiddleware } from './setup/middleware';
 import { csrfProtect } from './middleware/csrf';
+import { errorHandler } from './middleware/errorHandler';
 
 // Config and services
 import { config, isProduction, isDevelopment } from './config/env';
 import { logger } from './config/logger';
 import { disconnectDatabase, prisma } from './services/database';
+import { ensureAdminAccount } from './setup/ensureAdmin';
 // CSRF protection is applied selectively to routes that need it
 
 // Routes
@@ -15,7 +17,6 @@ import contactRoutes from './routes/contacts';
 import surveyRoutes from './routes/surveys';
 import adminRoutes from './routes/admin';
 import authRoutes from './routes/auth';
-import authJwtRoutes from './routes/auth-jwt';
 
 const app: Application = express();
 
@@ -48,12 +49,10 @@ app.use('/api/surveys', surveyRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/contacts', contactRoutes);
 
-// Auth routes
+// Auth routes - unified endpoint supporting both session and JWT auth
 app.use('/api/auth', authRoutes);
-// JWT auth (explicit namespace to avoid conflicts and match tests)
-app.use('/api/auth/jwt', authJwtRoutes);
 
-// Admin routes (protected) - apply CSRF to admin routes which rely on cookies/sessions
+// Admin routes (protected) with CSRF protection
 app.use('/api/admin', csrfProtect, adminRoutes);
 
 // Serve static frontend files in production
@@ -81,28 +80,8 @@ if (isProduction()) {
   });
 }
 
-// Error handling
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  // Log the error object safely
-  logger.error({ err }, 'Unhandled error');
-
-  // Determine status code
-  // Defensive extraction of status and message
-  // Extract known error fields defensively from unknown
-  const errObj = err as { statusCode?: number; status?: number; message?: unknown } | undefined;
-  const statusCode = errObj?.statusCode || errObj?.status || 500;
-
-  const errMessage = errObj?.message;
-  const message = isProduction()
-    ? (statusCode === 500 ? 'Internal server error' : String(errMessage))
-    : (String(errMessage) || 'Internal server error');
-
-  res.status(statusCode).json({
-    success: false,
-    error: message,
-    ...(isDevelopment() && { stack: (err as Error)?.stack }),
-  });
-});
+// Centralized error handler
+app.use(errorHandler);
 
 // 404 handler
 app.use((_req, res) => {
@@ -110,7 +89,14 @@ app.use((_req, res) => {
 });
 // Start server only when not running in test environment
 let server: ReturnType<typeof app.listen> | undefined;
-if (process.env.NODE_ENV !== 'test') {
+
+const startServer = async () => {
+  try {
+    await ensureAdminAccount();
+  } catch (err) {
+    logger.error({ err }, 'Failed to complete first-run admin setup check');
+  }
+
   server = app.listen(config.port, () => {
     logger.info(`🚀 Server running on port ${config.port} in ${config.env} mode`);
     logger.info(`📡 API: http://localhost:${config.port}/api`);
@@ -142,6 +128,10 @@ if (process.env.NODE_ENV !== 'test') {
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
+};
+
+if (process.env.NODE_ENV !== 'test') {
+  void startServer();
 }
 
 export default app;

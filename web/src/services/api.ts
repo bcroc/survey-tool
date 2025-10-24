@@ -22,7 +22,7 @@ export const setAuthToken = (token: string | null) => {
 };
 
 // Attach Authorization header from localStorage for API requests when present.
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(config => {
   try {
     const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
@@ -52,7 +52,7 @@ async function ensureCsrfToken() {
 }
 
 // Attach CSRF token automatically to admin requests
-api.interceptors.request.use(async (config) => {
+api.interceptors.request.use(async config => {
   if (config.url && config.url.startsWith('/admin')) {
     const token = await ensureCsrfToken();
     if (token) {
@@ -63,7 +63,7 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Response interceptor: unwrap unified API shape and handle auth
+// Response interceptor: unwrap unified API shape and handle auth + refresh
 api.interceptors.response.use(
   (response: any) => {
     const payload = response?.data;
@@ -73,13 +73,36 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error: any) => {
+  async (error: any) => {
+    const originalRequest = error.config;
+    // If we get 401, attempt a single refresh and retry
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const refreshRes = await authAPI.refresh();
+        const newToken = refreshRes?.data?.token;
+        if (newToken) {
+          try {
+            setAuthToken(newToken);
+          } catch (e) {
+            // ignore localStorage errors
+          }
+          // set header and retry original request
+          if (!originalRequest.headers) originalRequest.headers = {};
+          originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+          return api(originalRequest);
+        }
+      } catch (refreshErr) {
+        // fall through to redirect
+      }
+    }
+
     if (error.response?.status === 401) {
-      // Redirect to login on 401
       if (!window.location.pathname.startsWith('/admin/login')) {
         window.location.href = '/admin/login';
       }
     }
+
     return Promise.reject(error);
   }
 );
@@ -97,27 +120,29 @@ const createCrudApi = (baseUrl: string) => ({
 
 // Auth APIs
 export const authAPI = {
-  login: (email: string, password: string) =>
-    api.post('/auth/login', { email, password }),
+  login: (email: string, password: string) => api.post('/auth/login', { email, password }),
   logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me'),
+  // Check whether initial setup is required (no admin users exist)
+  needsSetup: () => api.get('/auth/setup'),
+  // Create initial admin user (only allowed when no admin exists)
+  setup: (email: string, password: string) => api.post('/auth/setup', { email, password }),
+  // Refresh access token using HttpOnly refresh cookie
+  refresh: () => api.post('/auth/refresh'),
 };
 
 // Survey APIs (public)
 export const surveyAPI = {
-  getActive: (eventSlug: string) =>
-    api.get<Survey>('/surveys/active', { params: { eventSlug } }),
+  getActive: (eventSlug: string) => api.get<Survey>('/surveys/active', { params: { eventSlug } }),
   getById: (id: string) => api.get<Survey>(`/surveys/${id}`),
 };
 
 // Submission APIs
 export const submissionAPI = {
-  create: (data: { surveyId: string; eventSlug: string }) =>
-    api.post('/submissions', data),
+  create: (data: { surveyId: string; eventSlug: string }) => api.post('/submissions', data),
   submitAnswers: (id: string, answers: Answer[]) =>
     api.post(`/submissions/${id}/answers`, { answers }),
-  complete: (id: string) =>
-    api.post(`/submissions/${id}/complete`),
+  complete: (id: string) => api.post(`/submissions/${id}/complete`),
 };
 
 // Contact APIs
@@ -151,8 +176,7 @@ export const adminAPI = {
   // Metrics
   getMetricsOverview: (surveyId: string) =>
     api.get<MetricsOverview>('/admin/metrics/overview', { params: { surveyId } }),
-  getQuestionMetrics: (id: string) =>
-    api.get<QuestionMetrics>(`/admin/metrics/question/${id}`),
+  getQuestionMetrics: (id: string) => api.get<QuestionMetrics>(`/admin/metrics/question/${id}`),
 
   // Export
   exportResponses: (surveyId?: string) =>
@@ -168,7 +192,7 @@ export const adminAPI = {
 
   // Audit
   getAuditLog: (params?: any) => api.get('/admin/audit', { params }),
-  
+
   // Import
   importSurvey: (data: any) => api.post('/admin/import', data),
 };

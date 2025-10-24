@@ -8,13 +8,16 @@
     "web"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=api\" \"npm run dev --workspace=web\"",
+  "dev": "concurrently \"npm run dev --workspace=api\" \"npm run dev --workspace=web\"",
+  "cleanup": "zsh ./scripts/cleanup.sh",
     "api:dev": "npm run dev --workspace=api",
     "web:dev": "npm run dev --workspace=web",
-    "build": "npm run build --workspace=web && npm run build --workspace=api",
+  "build": "npm run build --workspace=web && npm run build --workspace=api",
+  "build:all": "npm run build --workspace=api && npm run build --workspace=web",
     "api:build": "npm run build --workspace=api",
     "web:build": "npm run build --workspace=web",
-    "test": "npm run test --workspace=api && npm run test --workspace=web",
+  "test": "npm run test --workspace=api && npm run test --workspace=web",
+  "test:all": "npm run test --workspace=api && npm run test --workspace=web",
     "api:test": "npm run test --workspace=api",
     "web:test": "npm run test --workspace=web",
     "db:push": "npm run db:push --workspace=api",
@@ -23,7 +26,8 @@
     "lint": "npm run lint --workspace=api && npm run lint --workspace=web",
     "api:lint": "npm run lint --workspace=api",
     "web:lint": "npm run lint --workspace=web",
-    "format": "npm run format --workspace=api && npm run format --workspace=web",
+  "format": "npm run format --workspace=api && npm run format --workspace=web",
+  "format:all": "npm run format --workspace=api && npm run format --workspace=web",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f app",
@@ -31,6 +35,7 @@
     "docker:rebuild": "docker-compose down && docker-compose build && docker-compose up -d",
     "clean": "npm run clean --workspace=web && npm run clean --workspace=api && rm -f docker-build*.log final-build.log",
     "clean:all": "npm run clean && rm -rf web/dist api/dist"
+    ,"verify":"node -v && npm -v && npm run lint --if-present"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

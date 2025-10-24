@@ -12,7 +12,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState('');
 
   const selectedSurvey = useMemo(
-    () => surveys.find((s) => s.id === selectedSurveyId),
+    () => surveys.find(s => s.id === selectedSurveyId),
     [surveys, selectedSurveyId]
   );
 
@@ -24,7 +24,7 @@ export default function AdminDashboard() {
         const res = await adminAPI.surveys.list();
         const list = res.data as Survey[];
         setSurveys(list);
-        const preferred = list.find((s) => s.isActive) || list[0];
+        const preferred = list.find(s => s.isActive) || list[0];
         if (preferred) setSelectedSurveyId(preferred.id);
         const logsRes = await adminAPI.getAuditLog({ limit: 10, offset: 0 });
         setLogs(logsRes.data);
@@ -65,15 +65,25 @@ export default function AdminDashboard() {
         {error && <div className="mb-4 rounded bg-red-50 p-3 text-red-800">{error}</div>}
 
         <div className="mb-6 flex flex-wrap items-center gap-3">
-          <Link to="/admin/surveys" className="btn-secondary">Manage Surveys</Link>
+          <Link to="/admin/surveys" className="btn-secondary">
+            Manage Surveys
+          </Link>
           {selectedSurvey && (
             <>
-              <Link to={`/admin/results/${selectedSurvey.id}`} className="btn-secondary">Results</Link>
-              <Link to={`/admin/live/${selectedSurvey.id}`} className="btn-secondary">Live</Link>
-              <Link to={`/admin/surveys/${selectedSurvey.id}/builder`} className="btn-secondary">Builder</Link>
+              <Link to={`/admin/results/${selectedSurvey.id}`} className="btn-secondary">
+                Results
+              </Link>
+              <Link to={`/admin/live/${selectedSurvey.id}`} className="btn-secondary">
+                Live
+              </Link>
+              <Link to={`/admin/surveys/${selectedSurvey.id}/builder`} className="btn-secondary">
+                Builder
+              </Link>
             </>
           )}
-          <Link to="/admin/settings" className="btn-secondary">Settings</Link>
+          <Link to="/admin/settings" className="btn-secondary">
+            Settings
+          </Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -95,37 +105,48 @@ export default function AdminDashboard() {
           <div className="card">
             <div className="mb-3 flex items-center justify-between">
               <h2>Surveys</h2>
-              <Link to="/admin/surveys" className="text-sm text-primary-600 underline">View all</Link>
+              <Link to="/admin/surveys" className="text-sm text-primary-600 underline">
+                View all
+              </Link>
             </div>
             <ul className="space-y-3">
-              {surveys.map((s) => (
+              {surveys.map(s => (
                 <li key={s.id} className="flex items-center justify-between">
                   <div>
                     <div className="font-medium">{s.title}</div>
-                    <div className="text-xs text-gray-500">{new Date(s.createdAt).toLocaleString()}</div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(s.createdAt).toLocaleString()}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Link to={`/admin/results/${s.id}`} className="btn-secondary">Results</Link>
-                    <Link to={`/admin/surveys/${s.id}/builder`} className="btn-secondary">Edit</Link>
+                    <Link to={`/admin/results/${s.id}`} className="btn-secondary">
+                      Results
+                    </Link>
+                    <Link to={`/admin/surveys/${s.id}/builder`} className="btn-secondary">
+                      Edit
+                    </Link>
                   </div>
                 </li>
               ))}
-              {surveys.length === 0 && (
-                <li className="text-sm text-gray-600">No surveys yet</li>
-              )}
+              {surveys.length === 0 && <li className="text-sm text-gray-600">No surveys yet</li>}
             </ul>
           </div>
 
           <div className="card">
             <div className="mb-3 flex items-center justify-between">
               <h2>Recent Activity</h2>
-              <Link to="/admin/settings" className="text-sm text-primary-600 underline">Audit</Link>
+              <Link to="/admin/settings" className="text-sm text-primary-600 underline">
+                Audit
+              </Link>
             </div>
             <ul className="space-y-3">
-              {logs.map((log) => (
+              {logs.map(log => (
                 <li key={log.id} className="text-sm">
                   <span className="font-medium">{log.action}</span>
-                  <span className="text-gray-600"> · {new Date(log.createdAt).toLocaleString()}</span>
+                  <span className="text-gray-600">
+                    {' '}
+                    · {new Date(log.createdAt).toLocaleString()}
+                  </span>
                 </li>
               ))}
               {logs.length === 0 && <li className="text-sm text-gray-600">No recent activity</li>}

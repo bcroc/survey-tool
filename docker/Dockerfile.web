@@ -1,17 +1,20 @@
 ### Web production Dockerfile - build with Node, serve static via nginx
 FROM node:18-bullseye-slim AS builder
-WORKDIR /app
+WORKDIR /work
 
-COPY web/package*.json ./
-RUN npm ci --legacy-peer-deps
+COPY package*.json ./
+COPY web/package*.json ./web/
+## Use `npm ci` if a lockfile is present, otherwise fall back to `npm install`.
+RUN npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
-COPY tsconfig.base.json ../tsconfig.base.json
-COPY web/ ./
+COPY tsconfig.base.json ./
+COPY web/ ./web/
+WORKDIR /work/web
 RUN npm run build
 
 ### Nginx runtime serving static files
 FROM nginx:1.25-alpine as runtime
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /work/web/dist /usr/share/nginx/html
 
 # Remove default nginx.conf and provide a minimal one optimized for SPA
 COPY docker/nginx.conf /etc/nginx/nginx.conf

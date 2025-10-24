@@ -14,14 +14,16 @@ const createSubmissionSchema = z.object({
 });
 
 const submitAnswersSchema = z.object({
-  answers: z.array(
-    z.object({
-      questionId: z.string().cuid(),
-      choiceValues: z.array(z.string()).optional(),
-      textValue: z.string().optional(),
-      numberValue: z.number().optional(),
-    })
-  ).min(1, 'At least one answer is required'),
+  answers: z
+    .array(
+      z.object({
+        questionId: z.string().cuid(),
+        choiceValues: z.array(z.string()).optional(),
+        textValue: z.string().optional(),
+        numberValue: z.number().optional(),
+      })
+    )
+    .min(1, 'At least one answer is required'),
 });
 
 const completeSubmissionSchema = z.object({
@@ -93,8 +95,8 @@ router.post(
         numberValue?: number | null;
       };
 
-          // Bulk upsert answers
-          const upsertPromises = answers.map((answer: AnswerPayload) =>
+      // Bulk upsert answers
+      const upsertPromises = answers.map((answer: AnswerPayload) =>
         prisma.answer.upsert({
           where: {
             submissionId_questionId: {
@@ -156,7 +158,7 @@ router.post(
       return sendSuccess(
         res,
         {
-          nextRoute: '/contact',
+          nextRoute: '/thanks',
         },
         'Survey completed successfully'
       );

@@ -1,18 +1,63 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { authAPI } from '../../services/api';
 
 export default function AdminLogin() {
-  const [email, setEmail] = useState('');
+  const location = useLocation();
+  const initialEmail =
+    typeof (location.state as { email?: unknown; setupComplete?: boolean } | null)?.email ===
+    'string'
+      ? String((location.state as { email?: string }).email)
+      : '';
+
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(
+    (location.state as { setupComplete?: boolean } | null)?.setupComplete
+      ? 'Admin account created. Sign in to continue.'
+      : ''
+  );
   const [loading, setLoading] = useState(false);
+  const [checkingSetup, setCheckingSetup] = useState(true);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let mounted = true;
+    const checkSetup = async () => {
+      try {
+        const response = await authAPI.needsSetup();
+        if (response.data?.needsSetup) {
+          navigate('/admin/setup', { replace: true });
+          return;
+        }
+      } catch (err) {
+        // If the setup check fails, assume login should proceed.
+      } finally {
+        if (mounted) {
+          setCheckingSetup(false);
+        }
+      }
+    };
+
+    void checkSetup();
+
+    // Clear transient navigation state so success banner does not reappear on refresh.
+    if ((location.state as { setupComplete?: boolean } | null)?.setupComplete) {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [navigate, location.pathname, location.state]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setLoading(true);
 
     try {
@@ -25,11 +70,21 @@ export default function AdminLogin() {
     }
   };
 
+  if (checkingSetup) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
+        <div className="card w-full max-w-md text-center">
+          <p className="text-gray-600">Checking setup status…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
       <div className="card w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary-100">
             <svg
               className="h-8 w-8 text-primary-600"
               fill="none"
@@ -45,17 +100,16 @@ export default function AdminLogin() {
             </svg>
           </div>
           <h1 className="text-2xl">Admin Login</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Sign in to access the admin dashboard
-          </p>
+          <p className="mt-2 text-sm text-gray-600">Sign in to access the admin dashboard</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-red-50 p-4 text-sm text-red-800">
-              {error}
+          {success && (
+            <div className="rounded-lg bg-green-50 p-4 text-sm text-green-800" role="status">
+              {success}
             </div>
           )}
+          {error && <div className="rounded-lg bg-red-50 p-4 text-sm text-red-800">{error}</div>}
 
           <div>
             <label htmlFor="email" className="label">
@@ -65,7 +119,7 @@ export default function AdminLogin() {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               className="input"
               placeholder="you@example.com"
               required
@@ -81,7 +135,7 @@ export default function AdminLogin() {
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               className="input"
               placeholder="••••••••"
               required
@@ -91,7 +145,7 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>

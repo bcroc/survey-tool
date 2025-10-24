@@ -14,8 +14,8 @@ export function jwtAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const payload = verifyJwt<JwtPayload>(token);
     // Attach user-ish object compatible with passport's `req.user`
-    (req as any).user = { id: payload.id, email: payload.email };
-  } catch (e) {
+    (req as unknown as { user?: unknown }).user = { id: payload.id, email: payload.email };
+  } catch {
     // Ignore invalid token and move on; route-level auth can decide to reject
   }
 

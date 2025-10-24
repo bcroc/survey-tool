@@ -7,7 +7,7 @@ import compression from 'compression';
 import { logger } from '../config/logger';
 import { config, isProduction, isDevelopment } from '../config/env';
 // Session middleware removed; JWT-based auth used instead.
-import { publicLimiter, submissionLimiter } from '../utils/rateLimiter';
+import { rateLimiters } from '../middleware/rateLimiter';
 import { csrfProtect } from '../middleware/csrf';
 
 /**
@@ -45,19 +45,21 @@ export function setupMiddleware(app: Application) {
 
   // Body parsing
   app.use((require('express') as typeof import('express')).json({ limit: '10mb' }));
-  app.use((require('express') as typeof import('express')).urlencoded({ extended: true, limit: '10mb' }));
+  app.use(
+    (require('express') as typeof import('express')).urlencoded({ extended: true, limit: '10mb' })
+  );
 
-  // No session or passport middleware — application uses stateless JWT auth.
+  // Application supports both stateless JWT auth and session-based auth
 
-  // Rate limiters - call factory at init time
-  app.use('/api/surveys', publicLimiter());
-  app.use('/api/submissions', submissionLimiter());
-  app.use('/api/contacts', submissionLimiter());
+  // Apply rate limiters based on route type
+  app.use('/api/surveys', rateLimiters.public);
+  app.use('/api/submissions', rateLimiters.submission);
+  app.use('/api/contacts', rateLimiters.submission);
+  app.use('/api/auth', rateLimiters.auth);
 
-  // CSRF protection will be applied by route where needed (example: admin)
-  // Note: routes that need csrf should import and use `csrfProtect` explicitly.
-  // We export it for convenience.
-  (app as any).csrfProtect = csrfProtect;
+  // CSRF protection will be applied by route where needed
+  // Routes that need CSRF should import and use csrfProtect explicitly
+  (app as unknown as Record<string, unknown>).csrfProtect = csrfProtect;
 }
 
 export { csrfProtect };

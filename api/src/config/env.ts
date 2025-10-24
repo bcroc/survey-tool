@@ -24,8 +24,10 @@ function validateEnv() {
     if (error instanceof z.ZodError) {
       console.error('❌ Environment validation failed:');
       // Zod v4 uses `issues` instead of `errors`
-      const issues = (error as unknown as { issues?: Array<{ path: Array<string | number>; message: string }> }).issues ?? [];
-      issues.forEach((err) => {
+      const issues =
+        (error as unknown as { issues?: Array<{ path: Array<string | number>; message: string }> })
+          .issues ?? [];
+      issues.forEach(err => {
         console.error(`  - ${Array.isArray(err.path) ? err.path.join('.') : ''}: ${err.message}`);
       });
     }

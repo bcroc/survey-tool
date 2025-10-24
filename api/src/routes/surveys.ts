@@ -15,37 +15,37 @@ router.get(
     })
   ),
   async (req, res, next) => {
-  try {
-    // Currently we don't scope surveys by event; eventSlug is accepted for future use
+    try {
+      // Currently we don't scope surveys by event; eventSlug is accepted for future use
 
-    const survey = await prisma.survey.findFirst({
-      where: { isActive: true },
-      include: {
-        sections: {
-          orderBy: { order: 'asc' },
-          include: {
-            questions: {
-              orderBy: { order: 'asc' },
-              include: {
-                options: {
-                  orderBy: { order: 'asc' },
+      const survey = await prisma.survey.findFirst({
+        where: { isActive: true },
+        include: {
+          sections: {
+            orderBy: { order: 'asc' },
+            include: {
+              questions: {
+                orderBy: { order: 'asc' },
+                include: {
+                  options: {
+                    orderBy: { order: 'asc' },
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    if (!survey) {
-      return sendNotFound(res, 'No active survey found');
+      if (!survey) {
+        return sendNotFound(res, 'No active survey found');
+      }
+
+      return sendSuccess(res, survey);
+    } catch (error) {
+      next(error);
     }
-
-    return sendSuccess(res, survey);
-  } catch (error) {
-    next(error);
   }
-}
 );
 
 // GET /api/surveys/:id - Get specific survey (public)

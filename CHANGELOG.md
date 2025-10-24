@@ -115,6 +115,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two-factor authentication
 - Audit log viewer in UI
 
+### Refactor
+
+- Consolidated error handling and authentication middleware in the API
+  - Added `api/src/middleware/errorHandler.ts` (centralized AppError-aware handler)
+  - Added `api/src/middleware/auth.ts` with `requireAuth` and `optionalAuth`
+  - Replaced legacy `mixedAuth` usage and added tests for auth middleware
+  - Fixed lint config to avoid ESLint ESM/CommonJS mismatch
+
 ### Known Issues
 - Word cloud may not render well with very short texts
 - Session persistence requires cookies enabled
@@ -185,3 +193,9 @@ This project is licensed under the MIT License - see LICENSE file for details.
 ---
 
 *Last Updated: October 19, 2025*
+
+### Refactor
+- Centralized API error handling into `api/src/middleware/errorHandler.ts` to simplify `index.ts` and standardize AppError responses.
+- Consolidated authentication middleware: added `api/src/middleware/auth.ts` with `requireAuth` and `optionalAuth`, and updated routes to use the unified middleware. Kept a backwards-compatible shim at `api/src/middleware/mixedAuth.ts`.
+
+*Last Updated: October 23, 2025*

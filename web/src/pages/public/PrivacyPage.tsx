@@ -5,11 +5,11 @@ export default function PrivacyPage() {
         <div className="card">
           <h1>Privacy Policy</h1>
           <p className="lead">Last Updated: October 17, 2025</p>
-          
+
           <h2>Our Commitment to Your Privacy</h2>
           <p>
-            We take your privacy seriously. This survey is designed with privacy-first
-            principles to protect your anonymity while gathering valuable feedback.
+            We take your privacy seriously. This survey is designed with privacy-first principles to
+            protect your anonymity while gathering valuable feedback.
           </p>
 
           <h2>What We Collect</h2>
@@ -18,7 +18,9 @@ export default function PrivacyPage() {
             <li>Your answers to survey questions</li>
             <li>Timestamp of submission</li>
             <li>Event identifier</li>
-            <li><strong>No personal identifying information</strong></li>
+            <li>
+              <strong>No personal identifying information</strong>
+            </li>
           </ul>
 
           <h3>Optional Contact Information (Separate)</h3>
@@ -33,20 +35,31 @@ export default function PrivacyPage() {
             <li>Consent for follow-up</li>
           </ul>
 
-          <div className="rounded-lg bg-blue-50 p-4 my-4">
+          <div className="my-4 rounded-lg bg-blue-50 p-4">
             <p className="font-semibold text-blue-900">Important:</p>
             <p className="text-blue-800">
-              Contact information is stored completely separately from your survey responses
-              and cannot be linked back to your answers.
+              Contact information is stored completely separately from your survey responses and
+              cannot be linked back to your answers.
             </p>
           </div>
 
           <h2>Complete Data Separation</h2>
           <ol>
-            <li><strong>No Linkage:</strong> Survey responses and contact information are stored in separate database tables</li>
-            <li><strong>No Foreign Keys:</strong> There is no database relationship connecting your responses to your contact details</li>
-            <li><strong>Random Identifiers:</strong> Each submission uses a randomly generated ID</li>
-            <li><strong>No Tracking:</strong> We do not use cookies, browser fingerprinting, or any other tracking mechanisms</li>
+            <li>
+              <strong>No Linkage:</strong> Survey responses and contact information are stored in
+              separate database tables
+            </li>
+            <li>
+              <strong>No Foreign Keys:</strong> There is no database relationship connecting your
+              responses to your contact details
+            </li>
+            <li>
+              <strong>Random Identifiers:</strong> Each submission uses a randomly generated ID
+            </li>
+            <li>
+              <strong>No Tracking:</strong> We do not use cookies, browser fingerprinting, or any
+              other tracking mechanisms
+            </li>
           </ol>
 
           <h2>Your Rights</h2>

@@ -1,23 +1,48 @@
-# Dependencies
+# Node and build
 node_modules/
-/.pnp
-.pnp.js
+dist/
+build/
+/.parcel-cache
 
-# Dependencies
+# Environment files - do NOT commit real secrets
+.env
+.env.*.local
+.env.local
+api/.env
+
+# RSA/keys/certs
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# Mac
+.DS_Store
+
+# Coverage
+coverage/
+
+# Editor files
+.vscode/
+# Node dependencies
 node_modules/
+
+# Yarn/PnP
 /.pnp
 .pnp.js
 
 # Testing
 /coverage
 
-# Production
+# Build / production outputs
 /build
 /dist
 api/dist/
 web/dist/
 
-# Environment variables
+# Environment variables (do NOT commit secrets)
 .env
 .env.local
 .env.development.local
@@ -33,7 +58,7 @@ yarn-error.log*
 lerna-debug.log*
 *.log
 
-# OS
+# macOS
 .DS_Store
 .DS_Store?
 ._*
@@ -42,7 +67,7 @@ lerna-debug.log*
 ehthumbs.db
 Thumbs.db
 
-# IDE
+# IDE/editor
 .vscode/*
 !.vscode/extensions.json
 .idea/
@@ -55,13 +80,14 @@ Thumbs.db
 .temp/
 .tmp/
 
-# Prisma
+# Prisma migration outputs
 api/prisma/migrations/
 !api/prisma/migrations/.gitkeep
 
-# Build outputs
+# TypeScript build info
 *.tsbuildinfo
 
 # Docker build logs
 docker-build*.log
 final-build.log
+# Docker build logs

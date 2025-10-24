@@ -14,18 +14,25 @@ export function csrfProtect(req: Request, res: Response, next: NextFunction) {
   if (safeMethods.includes(req.method)) return next();
 
   // If session exists (legacy cookie-based clients), require CSRF token header
-  const hasSession = Boolean((req as any).session);
+  const hasSession = Boolean((req as unknown as { session?: { csrfToken?: string } }).session);
   if (hasSession) {
     const headerToken = req.get(CSRF_HEADER) as string | undefined;
-    const sessionToken = (req as any).session?.csrfToken as string | undefined;
-    if (!sessionToken) return res.status(403).json({ success: false, error: 'CSRF token missing from session' });
-    if (!headerToken) return res.status(403).json({ success: false, error: 'CSRF token missing from request' });
-    if (headerToken !== sessionToken) return res.status(403).json({ success: false, error: 'Invalid CSRF token' });
+    const sessionToken = (req as unknown as { session?: { csrfToken?: string } }).session
+      ?.csrfToken as string | undefined;
+    if (!sessionToken)
+      return res.status(403).json({ success: false, error: 'CSRF token missing from session' });
+    if (!headerToken)
+      return res.status(403).json({ success: false, error: 'CSRF token missing from request' });
+    if (headerToken !== sessionToken)
+      return res.status(403).json({ success: false, error: 'Invalid CSRF token' });
     return next();
   }
 
   // No session: expect Authorization header (Bearer token) for stateless requests
   const auth = req.get('authorization') || req.headers['authorization'];
-  if (!auth) return res.status(401).json({ success: false, error: 'Unauthenticated - missing Authorization' });
+  if (!auth)
+    return res
+      .status(401)
+      .json({ success: false, error: 'Unauthenticated - missing Authorization' });
   return next();
 }

@@ -39,7 +39,7 @@ export default function SurveyList() {
       setTitle('');
       setDescription('');
       setIsActive(false);
-      setSurveys((prev) => [res.data as Survey, ...prev]);
+      setSurveys(prev => [res.data as Survey, ...prev]);
       navigate(`/admin/surveys/${res.data.id}/builder`);
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to create survey');
@@ -58,11 +58,31 @@ export default function SurveyList() {
         <div className="card mb-6">
           <h2 className="mb-3">Create Survey</h2>
           <form className="grid gap-3 md:grid-cols-3" onSubmit={createSurvey}>
-            <input className="input" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            <input className="input" placeholder="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <input
+              className="input"
+              placeholder="Title"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              required
+            />
+            <input
+              className="input"
+              placeholder="Description (optional)"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+            />
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} /> Active</label>
-              <button className="btn-primary" disabled={creating}>{creating ? 'Creating...' : 'Create'}</button>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={e => setIsActive(e.target.checked)}
+                />{' '}
+                Active
+              </label>
+              <button className="btn-primary" disabled={creating}>
+                {creating ? 'Creating...' : 'Create'}
+              </button>
             </div>
           </form>
         </div>
@@ -70,7 +90,9 @@ export default function SurveyList() {
         <div className="card">
           <div className="mb-3 flex items-center justify-between">
             <h2>All Surveys</h2>
-            <button onClick={load} className="text-sm text-primary-600 underline">Refresh</button>
+            <button onClick={load} className="text-sm text-primary-600 underline">
+              Refresh
+            </button>
           </div>
           {loading ? (
             <div className="text-sm text-gray-600">Loading...</div>
@@ -85,23 +107,31 @@ export default function SurveyList() {
                 </tr>
               </thead>
               <tbody>
-                {surveys.map((s) => (
+                {surveys.map(s => (
                   <tr key={s.id} className="border-t">
                     <td className="py-2">{s.title}</td>
                     <td className="py-2">{s.isActive ? 'Yes' : 'No'}</td>
                     <td className="py-2">{new Date(s.createdAt).toLocaleString()}</td>
                     <td className="py-2">
                       <div className="flex flex-wrap gap-2">
-                        <Link className="btn-secondary" to={`/admin/surveys/${s.id}/builder`}>Edit</Link>
-                        <Link className="btn-secondary" to={`/admin/results/${s.id}`}>Results</Link>
-                        <Link className="btn-secondary" to={`/admin/live/${s.id}`}>Live</Link>
+                        <Link className="btn-secondary" to={`/admin/surveys/${s.id}/builder`}>
+                          Edit
+                        </Link>
+                        <Link className="btn-secondary" to={`/admin/results/${s.id}`}>
+                          Results
+                        </Link>
+                        <Link className="btn-secondary" to={`/admin/live/${s.id}`}>
+                          Live
+                        </Link>
                       </div>
                     </td>
                   </tr>
                 ))}
                 {surveys.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-gray-600">No surveys yet</td>
+                    <td colSpan={4} className="py-4 text-center text-gray-600">
+                      No surveys yet
+                    </td>
                   </tr>
                 )}
               </tbody>

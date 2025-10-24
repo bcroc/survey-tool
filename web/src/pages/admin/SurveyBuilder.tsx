@@ -69,7 +69,12 @@ export default function SurveyBuilder() {
     if (!confirm('Delete this branching rule?')) return;
     setSaving(true);
     try {
-      await adminAPI.options.update(optionId, { branchAction: null, targetQuestionId: null, targetSectionId: null, skipToEnd: false });
+      await adminAPI.options.update(optionId, {
+        branchAction: null,
+        targetQuestionId: null,
+        targetSectionId: null,
+        skipToEnd: false,
+      });
       await load();
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to delete branching rule');
@@ -97,7 +102,9 @@ export default function SurveyBuilder() {
     }
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    load();
+  }, [id]);
 
   const sortedSections: Section[] = useMemo(
     () => (survey?.sections || []).slice().sort((a, b) => a.order - b.order),
@@ -108,7 +115,11 @@ export default function SurveyBuilder() {
     if (!id) return;
     setSaving(true);
     try {
-      const res = await adminAPI.surveys.update(id, { title, description: description || undefined, isActive });
+      const res = await adminAPI.surveys.update(id, {
+        title,
+        description: description || undefined,
+        isActive,
+      });
       setSurvey(res.data as Survey);
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to save survey');
@@ -120,13 +131,23 @@ export default function SurveyBuilder() {
   const addSection = async () => {
     if (!id || !newSectionTitle.trim()) return;
     setSaving(true);
+    setError(''); // Clear any previous errors
     try {
-      const order = (survey?.sections.length || 0) + 1;
-      await adminAPI.sections.create({ surveyId: id, title: newSectionTitle.trim(), order });
+      const order = (survey?.sections?.length || 0) + 1;
+      const result = await adminAPI.sections.create({
+        surveyId: id,
+        title: newSectionTitle.trim(),
+        order,
+      });
       setNewSectionTitle('');
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.error || 'Failed to add section');
+      const errorMessage =
+        e?.response?.data?.error ||
+        e?.response?.data?.message ||
+        e?.message ||
+        'Failed to add section';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -149,7 +170,7 @@ export default function SurveyBuilder() {
     if (!targetSectionId || !qPrompt.trim()) return;
     setSaving(true);
     try {
-      const section = survey?.sections.find((s) => s.id === targetSectionId);
+      const section = survey?.sections.find(s => s.id === targetSectionId);
       const order = (section?.questions.length || 0) + 1;
       const payload: any = {
         sectionId: targetSectionId,
@@ -161,9 +182,13 @@ export default function SurveyBuilder() {
       if (qType === 'SINGLE' || qType === 'MULTI') {
         const opts = qOptionsCsv
           .split(',')
-          .map((s) => s.trim())
+          .map(s => s.trim())
           .filter(Boolean)
-          .map((label, idx) => ({ label, value: label.toLowerCase().replace(/\s+/g, '-'), order: idx + 1 }));
+          .map((label, idx) => ({
+            label,
+            value: label.toLowerCase().replace(/\s+/g, '-'),
+            order: idx + 1,
+          }));
         payload.options = opts;
       }
       await adminAPI.questions.create(payload);
@@ -185,6 +210,40 @@ export default function SurveyBuilder() {
       await load();
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to delete question');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const moveQuestion = async (questionId: string, newOrder: number, sectionId: string) => {
+    setSaving(true);
+    try {
+      // Get all questions in the section
+      const section = survey?.sections.find(s => s.id === sectionId);
+      if (!section) return;
+
+      const questions = [...section.questions].sort((a, b) => a.order - b.order);
+      const currentIndex = questions.findIndex(q => q.id === questionId);
+
+      if (currentIndex === -1) return;
+
+      // Calculate new position (newOrder is the target order value)
+      const targetIndex =
+        newOrder < questions[currentIndex].order ? currentIndex - 1 : currentIndex + 1;
+
+      // Reorder the array
+      const [movedQuestion] = questions.splice(currentIndex, 1);
+      questions.splice(targetIndex, 0, movedQuestion);
+
+      // Update all question orders
+      const updates = questions.map((q, idx) =>
+        adminAPI.questions.update(q.id, { order: idx + 1 })
+      );
+
+      await Promise.all(updates);
+      await load();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to reorder question');
     } finally {
       setSaving(false);
     }
@@ -217,11 +276,30 @@ export default function SurveyBuilder() {
         <div className="card mb-6">
           <h2 className="mb-3">Details</h2>
           <div className="grid gap-3 md:grid-cols-3">
-            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
-            <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
+            <input
+              className="input"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="Title"
+            />
+            <input
+              className="input"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Description"
+            />
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} /> Active</label>
-              <button className="btn-primary" onClick={saveSurveyMeta} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={e => setIsActive(e.target.checked)}
+                />{' '}
+                Active
+              </label>
+              <button className="btn-primary" onClick={saveSurveyMeta} disabled={saving}>
+                {saving ? 'Saving...' : 'Save'}
+              </button>
             </div>
           </div>
         </div>
@@ -233,114 +311,230 @@ export default function SurveyBuilder() {
                 <h2>Sections & Questions</h2>
               </div>
 
-              {sortedSections.map((sec) => (
+              {sortedSections.map(sec => (
                 <div key={sec.id} className="mb-6 rounded border p-4">
                   <div className="mb-2 flex items-center justify-between">
                     <div className="font-semibold">{sec.title}</div>
-                    <button className="btn-danger" onClick={() => deleteSection(sec.id)} disabled={saving}>Delete Section</button>
+                    <button
+                      className="btn-danger"
+                      onClick={() => deleteSection(sec.id)}
+                      disabled={saving}
+                    >
+                      Delete Section
+                    </button>
                   </div>
 
                   <ul className="space-y-3">
-                    {sec.questions.sort((a, b) => a.order - b.order).map((q) => (
-                      <li key={q.id} className="rounded bg-gray-50 p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="text-sm text-gray-600">{q.type}</div>
-                            <div className="font-medium">{q.prompt}</div>
-                            
-                            {/* Show options with branching rules */}
-                            {(q.type === 'SINGLE' || q.type === 'MULTI') && q.options && q.options.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                {q.options.sort((a, b) => a.order - b.order).map((opt: Option) => (
-                                  <div key={opt.id} className="text-sm pl-3 border-l-2 border-gray-300">
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-gray-700">• {opt.label}</span>
-                                      <div className="flex items-center gap-2">
-                                        {opt.branchAction ? (
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                              {opt.branchAction === 'SKIP_TO_END' ? '→ End Survey' :
-                                               opt.branchAction === 'SKIP_TO_SECTION' ? '→ Skip to Section' :
-                                               '→ Show Question'}
-                                            </span>
-                                            <button 
-                                              className="text-xs text-red-600 hover:underline" 
-                                              onClick={() => deleteBranchingRule(opt.id)}
-                                              disabled={saving}
-                                            >
-                                              Remove
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <button 
-                                            className="text-xs text-blue-600 hover:underline" 
-                                            onClick={() => setShowBranchingFor(opt.id)}
-                                            disabled={saving}
-                                          >
-                                            + Add Branch
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Branching configuration form */}
-                                    {showBranchingFor === opt.id && (
-                                      <div className="mt-2 p-2 bg-white rounded border space-y-2">
-                                        <div>
-                                          <label className="block text-xs font-medium mb-1">Action</label>
-                                          <select 
-                                            className="input text-xs" 
-                                            value={branchAction}
-                                            onChange={(e) => setBranchAction(e.target.value as BranchAction)}
-                                          >
-                                            <option value="SKIP_TO_SECTION">Skip to Section</option>
-                                            <option value="SKIP_TO_END">End Survey</option>
-                                          </select>
-                                        </div>
-                                        
-                                        {branchAction === 'SKIP_TO_SECTION' && (
-                                          <div>
-                                            <label className="block text-xs font-medium mb-1">Target Section</label>
-                                            <select 
-                                              className="input text-xs"
-                                              value={branchTargetSectionId}
-                                              onChange={(e) => setBranchTargetSectionId(e.target.value)}
-                                            >
-                                              <option value="">Select section...</option>
-                                              {sortedSections.map(s => (
-                                                <option key={s.id} value={s.id}>{s.title}</option>
-                                              ))}
-                                            </select>
-                                          </div>
-                                        )}
-                                        
-                                        <div className="flex gap-2">
-                                          <button 
-                                            className="btn-primary text-xs"
-                                            onClick={() => addBranchingRule(opt.id)}
-                                            disabled={saving || (branchAction === 'SKIP_TO_SECTION' && !branchTargetSectionId)}
-                                          >
-                                            Save
-                                          </button>
-                                          <button 
-                                            className="btn-secondary text-xs"
-                                            onClick={() => setShowBranchingFor(null)}
-                                            disabled={saving}
-                                          >
-                                            Cancel
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                    {sec.questions
+                      .sort((a, b) => a.order - b.order)
+                      .map((q, qIndex, qArray) => (
+                        <li key={q.id} className="rounded bg-gray-50 p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-1 items-start gap-2">
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => moveQuestion(q.id, q.order - 1, sec.id)}
+                                  disabled={qIndex === 0 || saving}
+                                  className="text-gray-600 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
+                                  title="Move up"
+                                >
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 15l7-7 7 7"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => moveQuestion(q.id, q.order + 1, sec.id)}
+                                  disabled={qIndex === qArray.length - 1 || saving}
+                                  className="text-gray-600 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
+                                  title="Move down"
+                                >
+                                  <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 9l-7 7-7-7"
+                                    />
+                                  </svg>
+                                </button>
                               </div>
-                            )}
+                              <div className="flex-1">
+                                <div className="text-sm text-gray-600">{q.type}</div>
+                                <div className="font-medium">{q.prompt}</div>
+
+                                {/* Show options with branching rules */}
+                                {(q.type === 'SINGLE' || q.type === 'MULTI') &&
+                                  q.options &&
+                                  q.options.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                      {q.options
+                                        .sort((a, b) => a.order - b.order)
+                                        .map((opt: Option) => (
+                                          <div
+                                            key={opt.id}
+                                            className="border-l-2 border-gray-300 pl-3 text-sm"
+                                          >
+                                            <div className="flex items-center justify-between gap-2">
+                                              <span className="text-gray-700">• {opt.label}</span>
+                                              <div className="flex items-center gap-2">
+                                                {opt.branchAction ? (
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="rounded bg-blue-100 px-2 py-1 text-xs text-blue-800">
+                                                      {opt.branchAction === 'SKIP_TO_END'
+                                                        ? '→ End Survey'
+                                                        : opt.branchAction === 'SKIP_TO_SECTION'
+                                                          ? '→ Skip to Section'
+                                                          : '→ Show Question'}
+                                                    </span>
+                                                    <button
+                                                      className="text-xs text-red-600 hover:underline"
+                                                      onClick={() => deleteBranchingRule(opt.id)}
+                                                      disabled={saving}
+                                                    >
+                                                      Remove
+                                                    </button>
+                                                  </div>
+                                                ) : (
+                                                  <button
+                                                    className="text-xs text-blue-600 hover:underline"
+                                                    onClick={() => setShowBranchingFor(opt.id)}
+                                                    disabled={saving}
+                                                  >
+                                                    + Add Branch
+                                                  </button>
+                                                )}
+                                              </div>
+                                            </div>
+
+                                            {/* Branching configuration form */}
+                                            {showBranchingFor === opt.id && (
+                                              <div className="mt-2 space-y-2 rounded border bg-white p-2">
+                                                <div>
+                                                  <label className="mb-1 block text-xs font-medium">
+                                                    Action
+                                                  </label>
+                                                  <select
+                                                    className="input text-xs"
+                                                    value={branchAction}
+                                                    onChange={e =>
+                                                      setBranchAction(
+                                                        e.target.value as BranchAction
+                                                      )
+                                                    }
+                                                  >
+                                                    <option value="SHOW_QUESTION">
+                                                      Show Specific Question
+                                                    </option>
+                                                    <option value="SKIP_TO_SECTION">
+                                                      Skip to Section
+                                                    </option>
+                                                    <option value="SKIP_TO_END">End Survey</option>
+                                                  </select>
+                                                </div>
+
+                                                {branchAction === 'SHOW_QUESTION' && (
+                                                  <div>
+                                                    <label className="mb-1 block text-xs font-medium">
+                                                      Target Question
+                                                    </label>
+                                                    <select
+                                                      className="input text-xs"
+                                                      value={branchTargetQuestionId}
+                                                      onChange={e =>
+                                                        setBranchTargetQuestionId(e.target.value)
+                                                      }
+                                                    >
+                                                      <option value="">Select question...</option>
+                                                      {sec.questions
+                                                        .filter(qq => qq.id !== q.id)
+                                                        .sort((a, b) => a.order - b.order)
+                                                        .map(qq => (
+                                                          <option key={qq.id} value={qq.id}>
+                                                            {qq.prompt.substring(0, 50)}
+                                                            {qq.prompt.length > 50 ? '...' : ''}
+                                                          </option>
+                                                        ))}
+                                                    </select>
+                                                  </div>
+                                                )}
+
+                                                {branchAction === 'SKIP_TO_SECTION' && (
+                                                  <div>
+                                                    <label className="mb-1 block text-xs font-medium">
+                                                      Target Section
+                                                    </label>
+                                                    <select
+                                                      className="input text-xs"
+                                                      value={branchTargetSectionId}
+                                                      onChange={e =>
+                                                        setBranchTargetSectionId(e.target.value)
+                                                      }
+                                                    >
+                                                      <option value="">Select section...</option>
+                                                      {sortedSections.map(s => (
+                                                        <option key={s.id} value={s.id}>
+                                                          {s.title}
+                                                        </option>
+                                                      ))}
+                                                    </select>
+                                                  </div>
+                                                )}
+
+                                                <div className="flex gap-2">
+                                                  <button
+                                                    className="btn-primary text-xs"
+                                                    onClick={() => addBranchingRule(opt.id)}
+                                                    disabled={
+                                                      saving ||
+                                                      (branchAction === 'SKIP_TO_SECTION' &&
+                                                        !branchTargetSectionId) ||
+                                                      (branchAction === 'SHOW_QUESTION' &&
+                                                        !branchTargetQuestionId)
+                                                    }
+                                                  >
+                                                    Save
+                                                  </button>
+                                                  <button
+                                                    className="btn-secondary text-xs"
+                                                    onClick={() => setShowBranchingFor(null)}
+                                                    disabled={saving}
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
+                              </div>
+                            </div>
+                            <button
+                              className="btn-danger"
+                              onClick={() => deleteQuestion(q)}
+                              disabled={saving}
+                            >
+                              Delete
+                            </button>
                           </div>
-                          <button className="btn-danger" onClick={() => deleteQuestion(q)} disabled={saving}>Delete</button>
-                        </div>
-                      </li>
-                    ))}
+                        </li>
+                      ))}
                     {sec.questions.length === 0 && (
                       <li className="text-sm text-gray-600">No questions yet</li>
                     )}
@@ -358,8 +552,19 @@ export default function SurveyBuilder() {
             <div className="card">
               <h2 className="mb-3">Add Section</h2>
               <div className="flex items-center gap-3">
-                <input className="input" placeholder="Section title" value={newSectionTitle} onChange={(e) => setNewSectionTitle(e.target.value)} />
-                <button className="btn-primary" onClick={addSection} disabled={saving || !newSectionTitle.trim()}>{saving ? 'Adding...' : 'Add'}</button>
+                <input
+                  className="input"
+                  placeholder="Section title"
+                  value={newSectionTitle}
+                  onChange={e => setNewSectionTitle(e.target.value)}
+                />
+                <button
+                  className="btn-primary"
+                  onClick={addSection}
+                  disabled={saving || !newSectionTitle.trim()}
+                >
+                  {saving ? 'Adding...' : 'Add'}
+                </button>
               </div>
             </div>
 
@@ -367,9 +572,15 @@ export default function SurveyBuilder() {
               <h2 className="mb-3">Add Question</h2>
               <div className="mb-3">
                 <label className="label">Target Section</label>
-                <select className="input" value={targetSectionId} onChange={(e) => setTargetSectionId(e.target.value)}>
-                  {sortedSections.map((s) => (
-                    <option key={s.id} value={s.id}>{s.title}</option>
+                <select
+                  className="input"
+                  value={targetSectionId}
+                  onChange={e => setTargetSectionId(e.target.value)}
+                >
+                  {sortedSections.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.title}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -377,26 +588,54 @@ export default function SurveyBuilder() {
               <div className="grid gap-3">
                 <div>
                   <label className="label">Type</label>
-                  <select className="input" value={qType} onChange={(e) => setQType(e.target.value as QuestionType)}>
-                    {QUESTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  <select
+                    className="input"
+                    value={qType}
+                    onChange={e => setQType(e.target.value as QuestionType)}
+                  >
+                    {QUESTION_TYPES.map(t => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="label">Prompt</label>
-                  <input className="input" value={qPrompt} onChange={(e) => setQPrompt(e.target.value)} />
+                  <input
+                    className="input"
+                    value={qPrompt}
+                    onChange={e => setQPrompt(e.target.value)}
+                  />
                 </div>
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={qRequired} onChange={(e) => setQRequired(e.target.checked)} /> Required
+                  <input
+                    type="checkbox"
+                    checked={qRequired}
+                    onChange={e => setQRequired(e.target.checked)}
+                  />{' '}
+                  Required
                 </label>
 
                 {(qType === 'SINGLE' || qType === 'MULTI') && (
                   <div>
                     <label className="label">Options (comma separated)</label>
-                    <input className="input" value={qOptionsCsv} onChange={(e) => setQOptionsCsv(e.target.value)} placeholder="e.g. Yes, No, Maybe" />
+                    <input
+                      className="input"
+                      value={qOptionsCsv}
+                      onChange={e => setQOptionsCsv(e.target.value)}
+                      placeholder="e.g. Yes, No, Maybe"
+                    />
                   </div>
                 )}
 
-                <button className="btn-primary" onClick={addQuestion} disabled={saving || !qPrompt.trim()}>{saving ? 'Adding...' : 'Add Question'}</button>
+                <button
+                  className="btn-primary"
+                  onClick={addQuestion}
+                  disabled={saving || !qPrompt.trim()}
+                >
+                  {saving ? 'Adding...' : 'Add Question'}
+                </button>
               </div>
             </div>
           </div>

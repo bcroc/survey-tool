@@ -162,6 +162,7 @@ model AdminUser {
   lastLogin    DateTime?
   
   auditLogs    AuditLog[]
+  refreshTokens RefreshToken[]
 }
 
 model AuditLog {
@@ -178,6 +179,25 @@ model AuditLog {
   @@index([adminId])
   @@index([action])
   @@index([createdAt])
+}
+
+// ============================================================
+// Refresh tokens for long-lived session renewal
+// ============================================================
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  adminId    String
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  admin      AdminUser @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([expiresAt])
 }
 
 // ============================================================

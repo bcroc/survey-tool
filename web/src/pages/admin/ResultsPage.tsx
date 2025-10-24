@@ -41,7 +41,7 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const questions = useMemo(() => (survey?.sections || []).flatMap((s) => s.questions), [survey]);
+  const questions = useMemo(() => (survey?.sections || []).flatMap(s => s.questions), [survey]);
 
   const load = async () => {
     if (!id) return;
@@ -54,7 +54,7 @@ export default function ResultsPage() {
       ]);
       setSurvey(sRes.data as Survey);
       setOverview(mRes.data as MetricsOverview);
-      const firstQ = (sRes.data as Survey).sections.flatMap((s) => s.questions)[0];
+      const firstQ = (sRes.data as Survey).sections.flatMap(s => s.questions)[0];
       if (firstQ) setSelectedQuestionId(firstQ.id);
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to load results');
@@ -63,11 +63,16 @@ export default function ResultsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    load();
+  }, [id]);
 
   useEffect(() => {
     const loadQ = async () => {
-      if (!selectedQuestionId) { setQuestionMetrics(null); return; }
+      if (!selectedQuestionId) {
+        setQuestionMetrics(null);
+        return;
+      }
       try {
         const res = await adminAPI.getQuestionMetrics(selectedQuestionId);
         setQuestionMetrics(res.data as QuestionMetrics);
@@ -96,31 +101,39 @@ export default function ResultsPage() {
         <div className="mb-6 grid gap-6 md:grid-cols-4">
           <div className="card">
             <div className="text-sm text-gray-600">Total Submissions</div>
-            <div className="mt-2 text-3xl font-bold text-primary-600">{overview?.totalSubmissions || 0}</div>
+            <div className="mt-2 text-3xl font-bold text-primary-600">
+              {overview?.totalSubmissions || 0}
+            </div>
           </div>
           <div className="card">
             <div className="text-sm text-gray-600">Completed</div>
-            <div className="mt-2 text-3xl font-bold text-green-600">{overview?.completedSubmissions || 0}</div>
+            <div className="mt-2 text-3xl font-bold text-green-600">
+              {overview?.completedSubmissions || 0}
+            </div>
           </div>
           <div className="card">
             <div className="text-sm text-gray-600">Completion Rate</div>
-            <div className="mt-2 text-3xl font-bold text-blue-600">{overview?.completionRate || 0}%</div>
+            <div className="mt-2 text-3xl font-bold text-blue-600">
+              {overview?.completionRate || 0}%
+            </div>
           </div>
           <div className="card">
             <div className="text-sm text-gray-600">Avg Time</div>
-            <div className="mt-2 text-3xl font-bold text-purple-600">{overview?.avgCompletionTimeSeconds || 0}s</div>
+            <div className="mt-2 text-3xl font-bold text-purple-600">
+              {overview?.avgCompletionTimeSeconds || 0}s
+            </div>
           </div>
         </div>
 
         {/* Question Selector */}
         <div className="card mb-6">
           <h2 className="mb-3">Select Question to Analyze</h2>
-          <select 
-            className="input w-full" 
-            value={selectedQuestionId} 
-            onChange={(e) => setSelectedQuestionId(e.target.value)}
+          <select
+            className="input w-full"
+            value={selectedQuestionId}
+            onChange={e => setSelectedQuestionId(e.target.value)}
           >
-            {questions.map((q) => (
+            {questions.map(q => (
               <option key={q.id} value={q.id}>
                 {q.prompt.substring(0, 100)}
               </option>
@@ -130,8 +143,8 @@ export default function ResultsPage() {
 
         {/* Question Visualizations */}
         {questionMetrics && (
-          <QuestionVisualization 
-            metrics={questionMetrics} 
+          <QuestionVisualization
+            metrics={questionMetrics}
             question={questions.find(q => q.id === selectedQuestionId)!}
           />
         )}
@@ -140,24 +153,42 @@ export default function ResultsPage() {
   );
 }
 
-function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics; question: Question }) {
-  const { questionType, totalResponses, distribution, average, median, min, max, responses, wordCount } = metrics;
+function QuestionVisualization({
+  metrics,
+  question,
+}: {
+  metrics: QuestionMetrics;
+  question: Question;
+}) {
+  const {
+    questionType,
+    totalResponses,
+    distribution,
+    average,
+    median,
+    min,
+    max,
+    responses,
+    wordCount,
+  } = metrics;
 
   // Generate colors for charts
   const generateColors = (count: number) => {
     const colors = [
-      'rgba(59, 130, 246, 0.8)',   // blue
-      'rgba(16, 185, 129, 0.8)',   // green
-      'rgba(249, 115, 22, 0.8)',   // orange
-      'rgba(139, 92, 246, 0.8)',   // purple
-      'rgba(236, 72, 153, 0.8)',   // pink
-      'rgba(234, 179, 8, 0.8)',    // yellow
-      'rgba(239, 68, 68, 0.8)',    // red
-      'rgba(6, 182, 212, 0.8)',    // cyan
-      'rgba(168, 85, 247, 0.8)',   // violet
-      'rgba(251, 146, 60, 0.8)',   // amber
+      'rgba(59, 130, 246, 0.8)', // blue
+      'rgba(16, 185, 129, 0.8)', // green
+      'rgba(249, 115, 22, 0.8)', // orange
+      'rgba(139, 92, 246, 0.8)', // purple
+      'rgba(236, 72, 153, 0.8)', // pink
+      'rgba(234, 179, 8, 0.8)', // yellow
+      'rgba(239, 68, 68, 0.8)', // red
+      'rgba(6, 182, 212, 0.8)', // cyan
+      'rgba(168, 85, 247, 0.8)', // violet
+      'rgba(251, 146, 60, 0.8)', // amber
     ];
-    return Array(count).fill(0).map((_, i) => colors[i % colors.length]);
+    return Array(count)
+      .fill(0)
+      .map((_, i) => colors[i % colors.length]);
   };
 
   // Render choice-based questions (SINGLE, MULTI, LIKERT, NPS)
@@ -172,23 +203,27 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
 
     const barData = {
       labels,
-      datasets: [{
-        label: 'Response Count',
-        data: values,
-        backgroundColor: colors,
-        borderColor: colors.map(c => c.replace('0.8', '1')),
-        borderWidth: 2,
-      }]
+      datasets: [
+        {
+          label: 'Response Count',
+          data: values,
+          backgroundColor: colors,
+          borderColor: colors.map(c => c.replace('0.8', '1')),
+          borderWidth: 2,
+        },
+      ],
     };
 
     const doughnutData = {
       labels,
-      datasets: [{
-        data: values,
-        backgroundColor: colors,
-        borderColor: '#fff',
-        borderWidth: 2,
-      }]
+      datasets: [
+        {
+          data: values,
+          backgroundColor: colors,
+          borderColor: '#fff',
+          borderWidth: 2,
+        },
+      ],
     };
 
     const chartOptions = {
@@ -201,9 +236,9 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
         title: {
           display: true,
           text: `${questionType} Question Analysis`,
-          font: { size: 16 }
-        }
-      }
+          font: { size: 16 },
+        },
+      },
     };
 
     return (
@@ -249,24 +284,89 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
     // Generate word frequency for word cloud
     const generateWordFrequency = (texts: string[]) => {
       const stopWords = new Set([
-        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-        'of', 'with', 'is', 'was', 'are', 'were', 'be', 'been', 'being',
-        'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-        'should', 'may', 'might', 'can', 'it', 'this', 'that', 'these', 'those',
-        'i', 'you', 'he', 'she', 'we', 'they', 'my', 'your', 'his', 'her', 'our',
-        'their', 'me', 'him', 'us', 'them', 'as', 'by', 'from', 'up', 'about',
-        'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between',
-        'under', 'again', 'further', 'then', 'once'
+        'the',
+        'a',
+        'an',
+        'and',
+        'or',
+        'but',
+        'in',
+        'on',
+        'at',
+        'to',
+        'for',
+        'of',
+        'with',
+        'is',
+        'was',
+        'are',
+        'were',
+        'be',
+        'been',
+        'being',
+        'have',
+        'has',
+        'had',
+        'do',
+        'does',
+        'did',
+        'will',
+        'would',
+        'could',
+        'should',
+        'may',
+        'might',
+        'can',
+        'it',
+        'this',
+        'that',
+        'these',
+        'those',
+        'i',
+        'you',
+        'he',
+        'she',
+        'we',
+        'they',
+        'my',
+        'your',
+        'his',
+        'her',
+        'our',
+        'their',
+        'me',
+        'him',
+        'us',
+        'them',
+        'as',
+        'by',
+        'from',
+        'up',
+        'about',
+        'into',
+        'through',
+        'during',
+        'before',
+        'after',
+        'above',
+        'below',
+        'between',
+        'under',
+        'again',
+        'further',
+        'then',
+        'once',
       ]);
 
       const wordMap = new Map<string, number>();
-      
+
       texts.forEach(text => {
-        const words = text.toLowerCase()
+        const words = text
+          .toLowerCase()
           .replace(/[^a-z0-9\s]/g, ' ')
           .split(/\s+/)
           .filter(word => word.length > 3 && !stopWords.has(word));
-        
+
         words.forEach(word => {
           wordMap.set(word, (wordMap.get(word) || 0) + 1);
         });
@@ -301,7 +401,7 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
         {/* Word Cloud */}
         <div className="card">
           <h3 className="mb-4 text-lg font-semibold">Word Cloud</h3>
-          <div className="bg-white rounded-lg border-2 border-gray-200" style={{ height: '400px' }}>
+          <div className="rounded-lg border-2 border-gray-200 bg-white" style={{ height: '400px' }}>
             {words.length > 0 ? (
               <ReactWordcloud words={words} options={wordCloudOptions} />
             ) : (
@@ -319,7 +419,10 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
             <div className="space-y-3">
               <Metric label="Total Responses" value={totalResponses} />
               <Metric label="Total Words" value={wordCount || 0} />
-              <Metric label="Avg Words per Response" value={wordCount && totalResponses ? Math.round(wordCount / totalResponses) : 0} />
+              <Metric
+                label="Avg Words per Response"
+                value={wordCount && totalResponses ? Math.round(wordCount / totalResponses) : 0}
+              />
             </div>
           </div>
 
@@ -327,7 +430,10 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
             <h3 className="mb-4 text-lg font-semibold">Top Keywords</h3>
             <div className="space-y-2">
               {words.slice(0, 10).map((word, i) => (
-                <div key={i} className="flex items-center justify-between rounded bg-gray-50 px-3 py-2">
+                <div
+                  key={i}
+                  className="flex items-center justify-between rounded bg-gray-50 px-3 py-2"
+                >
                   <span className="font-medium">{word.text}</span>
                   <span className="text-sm text-gray-600">×{word.value}</span>
                 </div>
@@ -339,7 +445,7 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
         {/* Sample Responses */}
         <div className="card">
           <h3 className="mb-4 text-lg font-semibold">Sample Responses</h3>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="max-h-96 space-y-3 overflow-y-auto">
             {responses.slice(0, 20).map((response, i) => (
               <div key={i} className="rounded-lg bg-gray-50 p-3 text-sm">
                 <span className="font-medium text-gray-500">Response {i + 1}:</span>
@@ -359,33 +465,37 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
     }
 
     const numbers = responses.map(r => parseFloat(r)).filter(n => !isNaN(n));
-    
+
     // Create histogram data
     const bins = 10;
     const range = (max || 0) - (min || 0);
     const binSize = range / bins;
     const histogram = new Array(bins).fill(0);
-    
+
     numbers.forEach(num => {
       const binIndex = Math.min(Math.floor((num - (min || 0)) / binSize), bins - 1);
       histogram[binIndex]++;
     });
 
-    const histogramLabels = Array(bins).fill(0).map((_, i) => {
-      const start = (min || 0) + i * binSize;
-      const end = start + binSize;
-      return `${start.toFixed(1)}-${end.toFixed(1)}`;
-    });
+    const histogramLabels = Array(bins)
+      .fill(0)
+      .map((_, i) => {
+        const start = (min || 0) + i * binSize;
+        const end = start + binSize;
+        return `${start.toFixed(1)}-${end.toFixed(1)}`;
+      });
 
     const barData = {
       labels: histogramLabels,
-      datasets: [{
-        label: 'Frequency',
-        data: histogram,
-        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 2,
-      }]
+      datasets: [
+        {
+          label: 'Frequency',
+          data: histogram,
+          backgroundColor: 'rgba(59, 130, 246, 0.8)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 2,
+        },
+      ],
     };
 
     const chartOptions = {
@@ -395,18 +505,18 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
         title: {
           display: true,
           text: 'Number Distribution',
-          font: { size: 16 }
-        }
+          font: { size: 16 },
+        },
       },
       scales: {
         y: {
           beginAtZero: true,
-          title: { display: true, text: 'Frequency' }
+          title: { display: true, text: 'Frequency' },
         },
         x: {
-          title: { display: true, text: 'Value Range' }
-        }
-      }
+          title: { display: true, text: 'Value Range' },
+        },
+      },
     };
 
     return (
@@ -434,17 +544,20 @@ function QuestionVisualization({ metrics, question }: { metrics: QuestionMetrics
     <div>
       <div className="card mb-4">
         <h2 className="text-xl font-bold">{question.prompt}</h2>
-        <p className="mt-1 text-sm text-gray-600">Type: {questionType} | {totalResponses} responses</p>
+        <p className="mt-1 text-sm text-gray-600">
+          Type: {questionType} | {totalResponses} responses
+        </p>
       </div>
 
-      {(questionType === 'SINGLE' || questionType === 'MULTI' || questionType === 'LIKERT' || questionType === 'NPS') && 
+      {(questionType === 'SINGLE' ||
+        questionType === 'MULTI' ||
+        questionType === 'LIKERT' ||
+        questionType === 'NPS') &&
         renderChoiceVisualization()}
-      
-      {(questionType === 'TEXT' || questionType === 'LONGTEXT') && 
-        renderTextVisualization()}
-      
-      {questionType === 'NUMBER' && 
-        renderNumberVisualization()}
+
+      {(questionType === 'TEXT' || questionType === 'LONGTEXT') && renderTextVisualization()}
+
+      {questionType === 'NUMBER' && renderNumberVisualization()}
     </div>
   );
 }

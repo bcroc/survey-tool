@@ -36,7 +36,7 @@ async function main() {
   // Create demo survey with all question types
   console.log('📋 Creating demo survey...');
   const eventSlug = process.env.DEFAULT_EVENT_SLUG || 'fall-summit-2025';
-  
+
   const survey = await prisma.survey.create({
     data: {
       title: 'Fall Summit 2025 Feedback',
@@ -271,8 +271,9 @@ async function main() {
         case QuestionType.LONGTEXT:
           if (Math.random() > 0.4) {
             const numSentences = Math.floor(Math.random() * 3) + 1;
-            const sentences = Array.from({ length: numSentences }, () => 
-              improvements[Math.floor(Math.random() * improvements.length)]
+            const sentences = Array.from(
+              { length: numSentences },
+              () => improvements[Math.floor(Math.random() * improvements.length)]
             );
             answerData.textValue = sentences.join('. ') + '.';
             answerData.choiceValues = [];
@@ -394,7 +395,7 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
+  .catch(e => {
     console.error('❌ Seed failed:', e);
     process.exit(1);
   })
